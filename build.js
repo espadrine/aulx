@@ -11,6 +11,7 @@ var output = fs.createWriteStream('aulx.js');
 var inputs = [
   'js/esprima.js',
   'js/static.js',
+  'js/main.js',
   'completers.js',
 ];
 
