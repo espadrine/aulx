@@ -3904,39 +3904,35 @@ parseStatement: true, parseSourceElement: true */
 var staticCandidates;   // We keep the previous candidates around.
 
 
-/**
- * Get all the variables in a JS script at a certain position.
- * This gathers variable (and argument) names by means of a static analysis
- * which it performs on a parse tree of the code.
- *
- * This static scope system is inflexible. If it can't parse the code, it won't
- * give you anything.
- *
- * @param string aScript
- *        The JS script to parse.
- * @param number aLine
- *        The line in the script from which we want the scope.
- * @param number aColumn
- *        The column in the script from which we want the scope.
- * @param object aStore
- *        (Optional) The object we return. Use to avoid allocation.
- * @param number aDepth
- *        (Optional) A starting point for indicating how deeply nested variables
- *        are.
- *
- * @return Map|null
- *         A map from all variable names to a number reflecting how deeply
- *         nested in the scope the variable was. A bigger number reflects a more
- *         deeply nested variable.
- *         We return null if we could not parse the code.
- */
-function getStaticScope(aScript, aLine, aColumn, aStore, aDepth) {
-  aStore = aStore || new Map();
-  aDepth = aDepth || 0;
+//
+// Get all the variables in a JS script at a certain position.
+// This gathers variable (and argument) names by means of a static analysis
+// which it performs on a parse tree of the code.
+//
+// Returns a map from all variable names to a number reflecting how deeply
+// nested in the scope the variable was. A bigger number reflects a more
+// deeply nested variable.
+// We return null if we could not parse the code.
+//
+// This static scope system is inflexible. If it can't parse the code, it won't
+// give you anything.
+//
+// Parameters:
+// - source: The JS script to parse.
+// - caret: {line:0, ch:0} The line and column in the script from which we want the scope.
+// - store:
+//   (Optional) The object we return. Use to avoid allocation.
+// - depth:
+//   (Optional, defaults to 0.) A starting point for indicating how deeply
+//   nested variables are.
+//
+function getStaticScope(source, caret, store, depth) {
+  store = store || new Map();
+  depth = depth || 0;
 
   var tree;
   try {
-    tree = esprima.parse(aScript);
+    tree = esprima.parse(source, {loc:true});
   } catch (e) { return null; }
 
   var node = tree.body;
@@ -3955,7 +3951,7 @@ function getStaticScope(aScript, aLine, aColumn, aStore, aDepth) {
         }
         if (subnode.type == "VariableDeclarator") {
           // Variable names go one level too deep.
-          aStore.set(subnode.id.name, stack.length - 1);
+          store.set(subnode.id.name, stack.length - 1);
           if (!!subnode.init) {
             subnode = subnode.init;
           }
@@ -3979,14 +3975,14 @@ function getStaticScope(aScript, aLine, aColumn, aStore, aDepth) {
           subnode = subnode.callee;
         }
         if (subnode.id) {
-          aStore.set(subnode.id.name, stack.length);
+          store.set(subnode.id.name, stack.length);
         }
-        if (caretInBlock(subnode, aLine, aColumn)) {
+        if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
-          argumentNames(subnode.params, aStore, stack.length + 1);
+          argumentNames(subnode.params, store, stack.length + 1);
         }
       }
-      deeper = nestedNodes(subnode, aLine, aColumn);
+      deeper = nestedNodes(subnode, caret);
       if (!!deeper) {
         // We need to go deeper.
         stack.push(node);
@@ -4002,96 +3998,91 @@ function getStaticScope(aScript, aLine, aColumn, aStore, aDepth) {
     }
   } while (stack.length > 0 || (node && index < node.length) || !!deeper);
 
-  return aStore;
+  return store;
 }
 
-/**
- * Find a parse node to iterate over.
- * @param mixed aNode
- *        JS parse tree node.
- * @param number aLine
- *        Line on which the caret is.
- * @param number aColumn
- *        Column on which the caret is.
- * @return array
- *         The node's array. Can also return null if it gets unhappy.
- */
-function nestedNodes(aNode, aLine, aColumn) {
+//
+// Find a parse node to iterate over, as the node's array.
+// Can also return null if it gets unhappy.
+//
+// Parameters:
+// - node: an AST parse tree node.
+// - caret: an object {line:0, ch:0} containing the 0-indexed position of the
+//   line and column of the caret.
+//
+function nestedNodes(node, caret) {
   var body = null;
   var newScope = true;  // Whether we enter a new scope.
-  if (aNode.body) {
-    if (aNode.body.body) {
+  if (node.body) {
+    if (node.body.body) {
       // Function declaration has a body in a body.
-      body = aNode.body.body;
+      body = node.body.body;
     } else {
-      body = aNode.body;
+      body = node.body;
     }
-  } else if (aNode.consequent) {
-    body = aNode.consequent.body;  // If statements.
-  } else if (aNode.alternate) {
-    body = aNode.alternate.body;   // If/else statements.
-  } else if (aNode.block) {
-    body = aNode.block.body;       // Try statements.
-  } else if (aNode.handlers) {     // Try/catch.
-    body = aNode.handlers.body.body;
-  } else if (aNode.finalizer) {
-    body = aNode.finalizer.body;   // Try/catch/finally.
-  } else if (aNode.declarations) {
-    body = aNode.declarations;     // Variable declarations.
+  } else if (node.consequent) {
+    body = node.consequent.body;  // If statements.
+  } else if (node.alternate) {
+    body = node.alternate.body;   // If/else statements.
+  } else if (node.block) {
+    body = node.block.body;       // Try statements.
+  } else if (node.handlers) {     // Try/catch.
+    body = node.handlers.body.body;
+  } else if (node.finalizer) {
+    body = node.finalizer.body;   // Try/catch/finally.
+  } else if (node.declarations) {
+    body = node.declarations;     // Variable declarations.
     newScope = false;
-  } else if (aNode.arguments) {
-    body = aNode.arguments;   // Function calls, eg, f(function(){…});
-  } else if (aNode.properties) {
-    body = aNode.properties;  // Objects, eg, ({f: function(){…}});
-  } else if (aNode.elements) {
-    body = aNode.elements;    // Array, eg, [function(){…}]
+  } else if (node.arguments) {
+    body = node.arguments;   // Function calls, eg, f(function(){…});
+  } else if (node.properties) {
+    body = node.properties;  // Objects, eg, ({f: function(){…}});
+  } else if (node.elements) {
+    body = node.elements;    // Array, eg, [function(){…}]
   }
   if (!body ||
       // No need to parse a scope in which the caret is not.
-      (newScope && !caretInBlock(aNode, aLine, aColumn))) {
+      (newScope && !caretInBlock(node, caret))) {
     return null;
   }
   return body;
 }
 
-/**
- * @param mixed aNode
- *        The parse tree node in which the caret might be.
- * @param number aLine
- *        The line where the caret is (starts with 1).
- * @param number aColumn
- *        The column where the caret is (starts with 0).
- * @return boolean
- *         Whether the caret is in the piece of code represented by the node.
- */
-function caretInBlock(aNode, aLine, aColumn) {
+//
+// Whether the caret is in the piece of code represented by the node.
+//
+// Parameters:
+//  - node: the parse tree node in which the caret might be.
+//  - caret: the line and column where the caret is (both 0-indexed).
+//
+function caretInBlock(node, caret) {
+  // Note that the AST's line number is 1-indexed.
+  var astStartLine = node.loc.start.line - 1;
+  var astEndLine = node.loc.end.line - 1;
   return (
-    // The aNode starts before the cursor.
-    (aNode.loc.start.line < aLine ||
-     (aNode.loc.start.line === aLine &&
-      aNode.loc.start.column <= aColumn)) &&
-    // The aNode ends after the cursor.
-    (aLine < aNode.loc.end.line ||
-     (aNode.loc.end.line === aLine &&
-      aColumn <= aNode.loc.end.column)));
+    // The node starts before the cursor.
+    (astStartLine - 1 < caret.line ||
+     (astStartLine === caret.line &&
+      node.loc.start.column <= caret.ch)) &&
+    // The node ends after the cursor.
+    (caret.line < astEndLine ||
+     (astEndLine === caret.line &&
+      caret.ch <= node.loc.end.column)));
 }
 
-/**
- * Get the argument names of a function.
- * @param array aNode
- *        The "params" property of a FunctionExpression.
- * @param Map aStore
- *        Where to store the information that an identifier exists and has the
- *        given weight.
- * @param number aWeight
- *        A measure of how deeply nested the node is. The deeper, the bigger.
- */
-function argumentNames(aNode, aStore, aWeight) {
-  var aNode = aNode;
-  var aStore = aStore;
-  var aWeight = aWeight;
-  for (var i = 0; i < aNode.length; i++) {
-    aStore.set(aNode[i].name, aWeight);
+//
+// Get the argument names of a function.
+//
+// Parameters:
+// - node: the "params" property of a FunctionExpression.
+// - store: a Map where we store the information that an identifier exists and
+//   has the given weight.
+// - weight: an integer measure of how deeply nested the node is. The deeper,
+//   the bigger.
+//
+function argumentNames(node, store, weight) {
+  for (var i = 0; i < node.length; i++) {
+    store.set(node[i].name, weight);
   }
 }
 
@@ -4154,10 +4145,6 @@ function identifierLookup(global, context) {
     result.completions = result.candidates.map(function (prop) {
       return prop.slice(matchProp.length);
     });
-    console.log('context:');
-    console.dir(context);
-    console.log('result:');
-    console.dir(result);
     return result;
 
   } else {
@@ -4287,7 +4274,7 @@ function jsCompleter(source, caret, options) {
 
   // Only do this (possibly expensive) operation once every new line.
   if (staticCandidates == null || options.fireStaticAnalysis) {
-    staticCandidates = getStaticScope(source, caret.line + 1, caret.ch)
+    staticCandidates = getStaticScope(source, caret)
         || staticCandidates;   // If it fails, use the previous version.
   }
   var allStaticCandidates = staticCandidates;
@@ -4297,15 +4284,15 @@ function jsCompleter(source, caret, options) {
       context.data.length === 1 && allStaticCandidates != null) {
     var varName = context.data[0];
     var staticCandidates = [];
-    for (var i = 0; i < allStaticCandidates.length; i++) {
-      var candidate = allStaticCandidates[i][0];
-      var weight = allStaticCandidates[i][1];
+    allStaticCandidates.forEach(function (value, key) {
+      var candidate = key;
+      var weight = value;
       // The candidate must match and have something to add!
       if (candidate.indexOf(varName) == 0
           && candidate.length > varName.length) {
         staticCandidates.push(candidate);
       }
-    }
+    });
     staticCandidates.sort(function(a, b) {
       // Sort them according to nearest scope.
       return allStaticCandidates.get(b) - allStaticCandidates.get(a);
@@ -4528,8 +4515,8 @@ exports.completer = completer;
 // Helper: Map implementation (will be removed when ES6 comes along).
 //
 // It is designed to be fast, but not 100% compatible with ES6.
-// Notably, map.keys returns a list of keys, since you cannot iterate through a
-// map in ES5 the same way you would in ES6.
+// Notably, map.getKeys returns a list of keys, since you cannot iterate
+// through a map in ES5 the same way you would in ES6.
 //
 // Note: may fail in case you unexpectedly use __proto__ as a key.
 
@@ -4556,7 +4543,11 @@ Map.prototype = {
       return false;
     }
   },
-  keys: function() {
-    return Object.keys(this.map);
+  forEach: function(callbackfn, thisArg) {
+    callbackfn = callbackfn.bind(thisArg);
+    for (var i in this.map) {
+      callbackfn(this.map[i], i, this);
+    }
   }
 };
+

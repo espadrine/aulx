@@ -13,6 +13,11 @@ function notEqual(a, b) {
           return true;
         }
       }
+      for (var key in b) {
+        if (notEqual(a[key], b[key])) {
+          return true;
+        }
+      }
       return false;
     } else {
       return true;

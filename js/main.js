@@ -43,7 +43,7 @@ function jsCompleter(source, caret, options) {
 
   // Only do this (possibly expensive) operation once every new line.
   if (staticCandidates == null || options.fireStaticAnalysis) {
-    staticCandidates = getStaticScope(source, caret.line + 1, caret.ch)
+    staticCandidates = getStaticScope(source, caret)
         || staticCandidates;   // If it fails, use the previous version.
   }
   var allStaticCandidates = staticCandidates;
@@ -53,15 +53,15 @@ function jsCompleter(source, caret, options) {
       context.data.length === 1 && allStaticCandidates != null) {
     var varName = context.data[0];
     var staticCandidates = [];
-    for (var i = 0; i < allStaticCandidates.length; i++) {
-      var candidate = allStaticCandidates[i][0];
-      var weight = allStaticCandidates[i][1];
+    allStaticCandidates.forEach(function (value, key) {
+      var candidate = key;
+      var weight = value;
       // The candidate must match and have something to add!
       if (candidate.indexOf(varName) == 0
           && candidate.length > varName.length) {
         staticCandidates.push(candidate);
       }
-    }
+    });
     staticCandidates.sort(function(a, b) {
       // Sort them according to nearest scope.
       return allStaticCandidates.get(b) - allStaticCandidates.get(a);

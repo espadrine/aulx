@@ -5,7 +5,7 @@ var Test = require('../test');
 var t = new Test();
 var aulx = require('../aulx');
 
-// Testing static.js
+// Testing main.js
 
 // getContext(source, caret)
 var source = 'var foo.bar;baz';
@@ -25,17 +25,26 @@ t.eq(aulx.getContext(source, caret),
        data: ['foo', 'ba'] },
      "getContext cuts identifiers on the cursor.");
 
-// jsCompleter(source, caret, options)
+// Testing sandbox.js
+
 var jsCompleter = aulx.completer.js;
 var source = 'foo.ba';
-var caret = {line:0, ch:source.length-1};
+var caret = {line:0, ch:source.length};
 // Create a global object with no inheritance.
 var global = Object.create(null);
 global.foo = Object.create(null);
 global.foo.bar = 0;
-t.eq(jsCompleter(source, caret, {global:{foo:{bar:0}}}),
+t.eq(jsCompleter(source, caret, {global:global}),
      {candidates:['bar'], completions:['r']},
      "The JS completer works with dynamic analysis.");
+
+// Testing static.js
+
+var source = 'var foobar; foo';
+var caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}),
+     {candidates:['foobar'], completions:['bar']},
+     "The JS completer works with static analysis.");
 
 
 // The End.
