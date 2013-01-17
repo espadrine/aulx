@@ -20,11 +20,12 @@ You can try to require it in node.
 Done:
 
 - JS keyword autocompletion,
-- Simple algorithm for autocompletion based on static analysis.
+- JS static analysis: a simple algorithm for autocompletion,
+- JS dynamic analysis.
 
 To do:
 
-- Wiring for most of the autocompletion system,
+- A better module system,
 - Better static analysis for JS,
 - CSS,
 - HTML,
