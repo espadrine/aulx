@@ -21,13 +21,16 @@ exports.completer = completer;
 
 
 // Helper: Map implementation (will be removed when ES6 comes along).
+//
 // It is designed to be fast, but not 100% compatible with ES6.
+// Notably, map.keys returns a list of keys, since you cannot iterate through a
+// map in ES5 the same way you would in ES6.
+//
 // Note: may fail in case you unexpectedly use __proto__ as a key.
 
 function Map() {
-  this.map = {};
   // Cut off the inheritance tree.
-  this.map.__proto__ = null;
+  this.map = Object.create(null);
 }
 
 Map.prototype = {
@@ -47,5 +50,8 @@ Map.prototype = {
     } else {
       return false;
     }
+  },
+  keys: function() {
+    return Object.keys(this.map);
   }
 };
