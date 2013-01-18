@@ -1,4 +1,5 @@
-# Aulx
+# Aulx [![Build Status](https://travis-ci.org/espadrine/aulx.png)](https://travis-ci.org/espadrine/aulx)
+
 
 *Autocompletion for the Web*
 
