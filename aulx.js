@@ -477,7 +477,7 @@ var Completion = {  // Examples.
   property: 1,      // foo.|
   string: 2,        // "foo".|
 };
-exports.Completion = Completion;
+jsCompleter.Completion = Completion;
 
 // Fetch data from the position of the caret in a source.
 // The data is an object containing the following:
@@ -535,7 +535,7 @@ function getContext(source, caret) {
   }
   return contextFromToken(tokens, tokIndex, caret);
 }
-exports.getContext = getContext;
+jsCompleter.getContext = getContext;
 
 function inRange(index, range) {
   return index > range[0] && index <= range[1];
@@ -623,7 +623,7 @@ var completer = {
   js: jsCompleter
 };
 
-exports.completer = completer;
+exports = completer;
 
 
 // Helper: Map implementation (will be removed when ES6 comes along).

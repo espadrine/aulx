@@ -17,7 +17,7 @@ var completer = {
   js: jsCompleter
 };
 
-exports.completer = completer;
+exports = completer;
 
 
 // Helper: Map implementation (will be removed when ES6 comes along).

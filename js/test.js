@@ -4,30 +4,30 @@
 var Test = require('../entrance/test');
 var t = new Test();
 var aulx = require('../aulx');
+var jsCompleter = aulx.js;
 
 // Testing main.js
 
 // getContext(source, caret)
 var source = 'var foo.bar;baz';
 var caret = {line:0, ch:15};
-t.eq(aulx.getContext(source, caret),
-     { completion: aulx.Completion.identifier,
+t.eq(jsCompleter.getContext(source, caret),
+     { completion: jsCompleter.Completion.identifier,
        data: ['baz'] },
      'getContext cares for semi-colons.');
 caret = {line:0, ch:11};
-t.eq(aulx.getContext(source, caret),
-     { completion: aulx.Completion.identifier,
+t.eq(jsCompleter.getContext(source, caret),
+     { completion: jsCompleter.Completion.identifier,
        data: ['foo', 'bar'] },
      "getContext takes all identifiers (doesn't stop with a dot).");
 caret = {line:0, ch:10};
-t.eq(aulx.getContext(source, caret),
-     { completion: aulx.Completion.identifier,
+t.eq(jsCompleter.getContext(source, caret),
+     { completion: jsCompleter.Completion.identifier,
        data: ['foo', 'ba'] },
      "getContext cuts identifiers on the cursor.");
 
 // Testing sandbox.js
 
-var jsCompleter = aulx.completer.js;
 var source = 'foo.ba';
 var caret = {line:0, ch:source.length};
 // Create a global object with no inheritance.
