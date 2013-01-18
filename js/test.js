@@ -1,7 +1,7 @@
 // Testing files in this directory.
 //
 
-var Test = require('../test');
+var Test = require('../entrance/test');
 var t = new Test();
 var aulx = require('../aulx');
 

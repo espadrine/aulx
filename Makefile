@@ -1,5 +1,5 @@
 all:
-	node build.js
+	node make.js
 
 test:
 	@echo Testing js…
