@@ -1,8 +1,8 @@
 all:
-	node make.js
+	node make
 
 test:
 	@echo Testing js…
-	@node js/test.js
+	@node js/test
 
 .PHONY: all test

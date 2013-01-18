@@ -35,3 +35,30 @@ To do:
 ![Aulx (French for Garlic)](http://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Allium_sativum._Restra_de_allos_de_Oroso-_Galiza.jpg/640px-Allium_sativum._Restra_de_allos_de_Oroso-_Galiza.jpg "Photographer: Luis Miguel Bugallo Sánchez")
 
 
+## To the delicate attention of fellow developers
+
+The main dev entry point is at `entrance/completers.js`.
+It uses all completers, each of which has its own directory.
+
+The main entry point for each of those folder is, quite unexpectedly, `main.js`.
+They also all have a `test.js` file, which is used for testing.
+
+Building the bundle `aulx.js` is done with this swift command:
+
+    make
+
+or, if your computer lacks `make`:
+
+    node make
+
+Finally, testing completers is either done in batch mode with this other swift
+command:
+
+    make test
+
+or, for each completer:
+
+    node <completer>/test
+    # For example:
+    node js/test
+
