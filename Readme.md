@@ -13,7 +13,7 @@ You can try to require it in node.
 
     var aulx = require('aulx');
     var source = 'var foo; fo';
-    aulx.completer.js(source, {line:0, ch:11});
+    aulx.js(source, {line:0, ch:11});
 
 ## State of the project
 
