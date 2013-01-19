@@ -17,8 +17,10 @@
 //    * ch: the column of the caret, starting with zero.
 //  - options: Object containing optional parameters:
 //    * line: String of the current line (which the editor may provide
-//      more efficiently than the default way.
+//      more efficiently than the default way).
 //    * global: global object. Can be used to perform level 1 (see above).
+//    * parser: a JS parser that is compatible with
+//      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 //    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
 //      analysis. Recommendation: run it at every newline.
 //
@@ -43,7 +45,7 @@ function jsCompleter(source, caret, options) {
 
   // Only do this (possibly expensive) operation once every new line.
   if (staticCandidates == null || options.fireStaticAnalysis) {
-    staticCandidates = getStaticScope(source, caret)
+    staticCandidates = getStaticScope(source, caret, {parser:options.parser})
         || staticCandidates;   // If it fails, use the previous version.
   }
   var allStaticCandidates = staticCandidates;

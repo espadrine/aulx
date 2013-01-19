@@ -20,19 +20,19 @@ var staticCandidates;   // We keep the previous candidates around.
 // Parameters:
 // - source: The JS script to parse.
 // - caret: {line:0, ch:0} The line and column in the script from which we want the scope.
-// - store:
-//   (Optional) The object we return. Use to avoid allocation.
-// - depth:
-//   (Optional, defaults to 0.) A starting point for indicating how deeply
-//   nested variables are.
+// - options:
+//   * store: The object we return. Use to avoid allocation.
+//   * parser: A JS parser that conforms to
+//     https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 //
-function getStaticScope(source, caret, store, depth) {
-  store = store || new Map();
-  depth = depth || 0;
+function getStaticScope(source, caret, options) {
+  options = options || {};
+  options.store = options.store || new Map();
+  options.parse = options.parse || esprima.parse;
 
   var tree;
   try {
-    tree = esprima.parse(source, {loc:true});
+    tree = options.parse(source, {loc:true});
   } catch (e) { return null; }
 
   var node = tree.body;
@@ -51,7 +51,7 @@ function getStaticScope(source, caret, store, depth) {
         }
         if (subnode.type == "VariableDeclarator") {
           // Variable names go one level too deep.
-          store.set(subnode.id.name, stack.length - 1);
+          options.store.set(subnode.id.name, stack.length - 1);
           if (!!subnode.init) {
             subnode = subnode.init;
           }
@@ -75,11 +75,11 @@ function getStaticScope(source, caret, store, depth) {
           subnode = subnode.callee;
         }
         if (subnode.id) {
-          store.set(subnode.id.name, stack.length);
+          options.store.set(subnode.id.name, stack.length);
         }
         if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
-          argumentNames(subnode.params, store, stack.length + 1);
+          argumentNames(subnode.params, options.store, stack.length + 1);
         }
       }
       deeper = nestedNodes(subnode, caret);
@@ -98,7 +98,7 @@ function getStaticScope(source, caret, store, depth) {
     }
   } while (stack.length > 0 || (node && index < node.length) || !!deeper);
 
-  return store;
+  return options.store;
 }
 
 //
