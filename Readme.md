@@ -26,7 +26,6 @@ Done:
 
 To do:
 
-- A better module system,
 - Better static analysis for JS,
 - CSS,
 - HTML,
@@ -38,11 +37,10 @@ To do:
 
 ## To the delicate attention of fellow developers
 
-The main dev entry point is at `entrance/completers.js`.
+Project entry point: `entrance/completers.js`.
 It uses all completers, each of which has its own directory.
 
-The main entry point for each of those folder is, quite unexpectedly, `main.js`.
-They also all have a `test.js` file, which is used for testing.
+Completer entry point: `<completer>/main.js` (no surprise there!)
 
 Building the bundle `aulx.js` is done with this swift command:
 
@@ -52,8 +50,8 @@ or, if your computer lacks `make`:
 
     node make
 
-Finally, testing completers is either done in batch mode with this other swift
-command:
+Finally, testing completers is either done in batch mode with yet another
+swift command:
 
     make test
 
@@ -63,3 +61,10 @@ or, for each completer:
     # For example:
     node js/test
 
+----
+
+*Baked by Thaddée Tyl*.
+
+This work is licensed under the Creative Commons Attribution 3.0 Unported
+License. To view a copy of this license, visit
+http://creativecommons.org/licenses/by/3.0/.
