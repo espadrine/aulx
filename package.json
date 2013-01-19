@@ -1,0 +1,27 @@
+{
+  "name": "aulx",
+  "description": "Autocompletion for the Web. Includes JS with static and dynamic analysis.",
+  "author": "Thaddee Tyl <thaddee.tyl@gmail.com> (http://espadrine.github.com/)",
+  "contributors": [
+    "Thaddee Tyl <thaddee.tyl@gmail.com>"
+  ],
+  "main": "aulx.js",
+  "version": "13.01.17",
+  "homepage": "http://espadrine.github.com/aulx/",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/espadrine/aulx.git"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "engines": {
+    "node": ">=0.4.0"
+  },
+  "dependencies": {
+    "esprima": "1.0.3"
+  },
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "readmeFilename": "Readme.md"
+}
