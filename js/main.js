@@ -198,23 +198,46 @@ function inRange(index, range) {
   return index > range[0] && index <= range[1];
 }
 
+// Either
+//
+//  {
+//    completion: Completion.<type of completion>,
+//    data: <Array of string>
+//  }
+//
+// or undefined.
+//
+// Parameters:
+//  - tokens: list of tokens.
+//  - tokIndex: index of the token where the caret is.
+//  - caret: {line:0, ch:0}, position of the caret.
 function contextFromToken(tokens, tokIndex, caret) {
   var token = tokens[tokIndex];
+  var prevToken;
   if (token.type === esprima.Token.Punctuator &&
       token.value === '.') {
-    // Property completion.
-    return {
-      completion: Completion.property,
-      data: suckIdentifier(tokens, tokIndex, caret)
-    };
+    if (tokens[tokIndex - 1]) {
+      prevToken = tokens[tokIndex - 1];
+      if (prevToken.type === esprima.Token.StringLiteral) {
+        // String completion.
+        return {
+          completion: Completion.string,
+          data: []  // No need for data.
+        };
+      } else if (prevToken.type === esprima.Token.Identifier) {
+        // Property completion.
+        return {
+          completion: Completion.property,
+          data: suckIdentifier(tokens, tokIndex, caret)
+        };
+      }
+    }
   } else if (token.type === esprima.Token.Identifier) {
     // Identifier completion.
     return {
       completion: Completion.identifier,
       data: suckIdentifier(tokens, tokIndex, caret)
     };
-  } else {
-    return null;
   }
 }
 
