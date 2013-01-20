@@ -6,11 +6,14 @@ var t = new Test();
 var aulx = require('../aulx');
 var jsCompleter = aulx.js;
 
+var source;
+var caret;
+
 // Testing main.js
 
 // getContext(source, caret)
-var source = 'var foo.bar;baz';
-var caret = {line:0, ch:15};
+source = 'var foo.bar;baz';
+caret = {line:0, ch:15};
 t.eq(jsCompleter.getContext(source, caret),
      { completion: jsCompleter.Completion.identifier,
        data: ['baz'] },
@@ -28,8 +31,8 @@ t.eq(jsCompleter.getContext(source, caret),
 
 // Testing sandbox.js
 
-var source = 'foo.ba';
-var caret = {line:0, ch:source.length};
+source = 'foo.ba';
+caret = {line:0, ch:source.length};
 // Create a global object with no inheritance.
 var global = Object.create(null);
 global.foo = Object.create(null);
@@ -38,10 +41,20 @@ t.eq(jsCompleter(source, caret, {global:global}),
      {candidates:['bar'], completions:['r']},
      "The JS completer works with dynamic analysis.");
 
+source = '"foo".';
+caret = {line:0, ch:source.length};
+// Fake String.prototype.
+global.String = Object.create(null);
+global.String.prototype = Object.create(null);
+global.String.prototype.big = 1;
+t.eq(jsCompleter(source, caret, {global:global}),
+     {candidates:['big'], completions:['big']},
+     "The JS completer does string completion.");
+
 // Testing static.js
 
-var source = 'var foobar; foo';
-var caret = {line:0, ch:source.length};
+source = 'var foobar; foo';
+caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}),
      {candidates:['foobar'], completions:['bar']},
      "The JS completer works with static analysis.");

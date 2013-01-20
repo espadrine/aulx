@@ -48,6 +48,9 @@ function identifierLookup(global, context) {
         value = value[context.data[i]];
       }
     }
+  } else if (context.completion === Completion.string) {
+    // "foo".|
+    value = global.String.prototype;
   }
 
   var result = {candidates: [], completions: []};

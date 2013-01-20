@@ -250,6 +250,9 @@ function identifierLookup(global, context) {
         value = value[context.data[i]];
       }
     }
+  } else if (context.completion === Completion.string) {
+    // "foo".|
+    value = global.String.prototype;
   }
 
   var result = {candidates: [], completions: []};
@@ -362,11 +365,10 @@ function getPropertyDescriptor(obj, name) {
 //    * ch: the column of the caret, starting with zero.
 //  - options: Object containing optional parameters:
 //    * line: String of the current line (which the editor may provide
-//      more efficiently than the default way.
+//      more efficiently than the default way).
 //    * global: global object. Can be used to perform level 1 (see above).
 //    * parser: a JS parser that is compatible with
 //      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
-//    * tokenizer: a JS tokenizer that is compatible with Esprima's.
 //    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
 //      analysis. Recommendation: run it at every newline.
 //
@@ -544,23 +546,46 @@ function inRange(index, range) {
   return index > range[0] && index <= range[1];
 }
 
+// Either
+//
+//  {
+//    completion: Completion.<type of completion>,
+//    data: <Array of string>
+//  }
+//
+// or undefined.
+//
+// Parameters:
+//  - tokens: list of tokens.
+//  - tokIndex: index of the token where the caret is.
+//  - caret: {line:0, ch:0}, position of the caret.
 function contextFromToken(tokens, tokIndex, caret) {
   var token = tokens[tokIndex];
+  var prevToken;
   if (token.type === esprima.Token.Punctuator &&
       token.value === '.') {
-    // Property completion.
-    return {
-      completion: Completion.property,
-      data: suckIdentifier(tokens, tokIndex, caret)
-    };
+    if (tokens[tokIndex - 1]) {
+      prevToken = tokens[tokIndex - 1];
+      if (prevToken.type === esprima.Token.StringLiteral) {
+        // String completion.
+        return {
+          completion: Completion.string,
+          data: []  // No need for data.
+        };
+      } else if (prevToken.type === esprima.Token.Identifier) {
+        // Property completion.
+        return {
+          completion: Completion.property,
+          data: suckIdentifier(tokens, tokIndex, caret)
+        };
+      }
+    }
   } else if (token.type === esprima.Token.Identifier) {
     // Identifier completion.
     return {
       completion: Completion.identifier,
       data: suckIdentifier(tokens, tokIndex, caret)
     };
-  } else {
-    return null;
   }
 }
 
