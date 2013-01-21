@@ -58,3 +58,42 @@ Map.prototype = {
     }
   }
 };
+
+
+// Completion-related data structures.
+//
+
+// The only way to distinguish two candidates is through how they are displayed.
+// That's how the user can tell the difference, too.
+function Candidate(display, postfix, score) {
+  this.display = display;   // What the user sees.
+  this.postfix = postfix;   // What is added when selected.
+  this.score = score|0;     // Its score.
+}
+
+function Completion() {
+  this.candidateFromDisplay = new Map();
+  this.candidates = [];
+}
+
+Completion.prototype = {
+  insert: function(candidate) {
+    this.candidateFromDisplay.set(candidate.display, candidate);
+    this.candidates.push(candidate);
+  },
+  meld: function(completion) {
+    for (var i = 0; i < completion.candidates.length; i++) {
+      var candidate = completion.candidates[i];
+      if (!this.candidateFromDisplay.has(candidate.display)) {
+        // We do not already have this candidate.
+        this.insert(candidate);
+      }
+    }
+  },
+  sort: function() {
+    this.candidates.sort(function(a, b) {
+      return a.score - b.score;
+    });
+  }
+};
+

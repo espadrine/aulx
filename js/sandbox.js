@@ -14,7 +14,7 @@ function identifierLookup(global, context) {
   var matchProp = '';
 
   var value = global;
-  if (context.completion === Completion.identifier) {
+  if (context.completing === Completing.identifier) {
     // foo.ba|
     for (var i = 0; i < context.data.length - 1; i++) {
       var descriptor = getPropertyDescriptor(value, context.data[i]);
@@ -33,7 +33,7 @@ function identifierLookup(global, context) {
       matchProp = context.data[context.data.length - 1];
     }
 
-  } else if (context.completion === Completion.property) {
+  } else if (context.completing === Completing.property) {
     // foo.|
     for (var i = 0; i < context.data.length; i++) {
       var descriptor = getPropertyDescriptor(value, context.data[i]);
@@ -48,24 +48,19 @@ function identifierLookup(global, context) {
         value = value[context.data[i]];
       }
     }
-  } else if (context.completion === Completion.string) {
+  } else if (context.completing === Completing.string) {
     // "foo".|
     value = global.String.prototype;
   }
 
-  var result = {candidates: [], completions: []};
+  var completion = new Completion();
   if (value != null) {
     var matchedProps = getMatchedProps(value, { matchProp: matchProp });
-    result.candidates = Object.keys(matchedProps);
-    result.completions = result.candidates.map(function (prop) {
-      return prop.slice(matchProp.length);
-    });
-    return result;
-
-  } else {
-    // We cannot give any completion.
-    return result;  // empty result.
+    for (var prop in matchedProps) {
+      completion.insert(new Candidate(prop, prop.slice(matchProp.length), -1));
+    }
   }
+  return completion;
 }
 
 

@@ -15,17 +15,17 @@ var caret;
 source = 'var foo.bar;baz';
 caret = {line:0, ch:15};
 t.eq(jsCompleter.getContext(source, caret),
-     { completion: jsCompleter.Completion.identifier,
+     { completing: jsCompleter.Completing.identifier,
        data: ['baz'] },
      'getContext cares for semi-colons.');
 caret = {line:0, ch:11};
 t.eq(jsCompleter.getContext(source, caret),
-     { completion: jsCompleter.Completion.identifier,
+     { completing: jsCompleter.Completing.identifier,
        data: ['foo', 'bar'] },
      "getContext takes all identifiers (doesn't stop with a dot).");
 caret = {line:0, ch:10};
 t.eq(jsCompleter.getContext(source, caret),
-     { completion: jsCompleter.Completion.identifier,
+     { completing: jsCompleter.Completing.identifier,
        data: ['foo', 'ba'] },
      "getContext cuts identifiers on the cursor.");
 
@@ -37,8 +37,8 @@ caret = {line:0, ch:source.length};
 var global = Object.create(null);
 global.foo = Object.create(null);
 global.foo.bar = 0;
-t.eq(jsCompleter(source, caret, {global:global}),
-     {candidates:['bar'], completions:['r']},
+t.eq(jsCompleter(source, caret, {global:global}).candidates,
+     [{display:"bar", postfix:"r", score:-1}],
      "The JS completer works with dynamic analysis.");
 
 source = '"foo".';
@@ -47,16 +47,24 @@ caret = {line:0, ch:source.length};
 global.String = Object.create(null);
 global.String.prototype = Object.create(null);
 global.String.prototype.big = 1;
-t.eq(jsCompleter(source, caret, {global:global}),
-     {candidates:['big'], completions:['big']},
+t.eq(jsCompleter(source, caret, {global:global}).candidates,
+     [{display:"big", postfix:"big", score:-1}],
      "The JS completer does string completion.");
 
 // Testing static.js
 
 source = 'var foobar; foo';
 caret = {line:0, ch:source.length};
-t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}),
-     {candidates:['foobar'], completions:['bar']},
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"foobar", postfix:"bar", score:0}],
+     "The JS completer works with static analysis.");
+
+// Testing keyword completion
+
+source = 'vo';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"void", postfix:"id", score:-2}],
      "The JS completer works with static analysis.");
 
 

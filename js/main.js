@@ -24,14 +24,16 @@
 //    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
 //      analysis. Recommendation: run it at every newline.
 //
-// Return an object with the following fields:
-//  - candidates: A list of the matches to a possible completion.
-//  - completions: A list of the associated completion to a candidate.
+// Return a sorted Completion (see entrance/completers.js).
+//  - candidateFromDisplay: Map from display string to candidate.
+//  - candidates: A list of candidates:
+//    * display: a string of what the user sees.
+//    * postfix: a string of what is added when the user chooses this.
+//    * score: a number to grade the candidate.
 //
 function jsCompleter(source, caret, options) {
   options = options || {};
-  var candidates = [];
-  var completions = [];
+  var completion = new Completion();
 
   // We use a primitive sorting algorithm.
   // The candidates are simply concatenated, level after level.
@@ -48,50 +50,36 @@ function jsCompleter(source, caret, options) {
     staticCandidates = getStaticScope(source, caret, {parser:options.parser})
         || staticCandidates;   // If it fails, use the previous version.
   }
-  var allStaticCandidates = staticCandidates;
+  var staticCompletion = new Completion();
   // Right now, we can only complete variables.
-  if ((context.completion === Completion.identifier ||
-       context.completion === Completion.property) &&
-      context.data.length === 1 && allStaticCandidates != null) {
+  if ((context.completing === Completing.identifier ||
+       context.completing === Completing.property) &&
+      context.data.length === 1 && staticCandidates != null) {
     var varName = context.data[0];
-    var staticCandidates = [];
-    allStaticCandidates.forEach(function (value, key) {
-      var candidate = key;
-      var weight = value;
-      // The candidate must match and have something to add!
-      if (candidate.indexOf(varName) == 0
-          && candidate.length > varName.length) {
-        staticCandidates.push(candidate);
+    staticCandidates.forEach(function (weight, display) {
+      // They have a positive score.
+      if (display.indexOf(varName) == 0
+          && display.length > varName.length) {
+        // The candidate must match and have something to add!
+        staticCompletion.insert(new Candidate(display,
+            display.slice(varName.length), weight));
       }
     });
-    staticCandidates.sort(function(a, b) {
-      // Sort them according to nearest scope.
-      return allStaticCandidates.get(b) - allStaticCandidates.get(a);
-    });
-    candidates = candidates.concat(staticCandidates);
-    completions = completions.concat(staticCandidates
-      .map(function(candidate) {
-          return candidate.slice(varName.length);
-      }));
+    completion.meld(staticCompletion);
   }
 
   // Sandbox-based candidates (Level 1).
 
   if (options.global !== undefined) {
+    // They have a score of -1.
     var sandboxCompletion = identifierLookup(options.global, context);
     if (sandboxCompletion) {
-      sandboxCompletion.candidates = sandboxCompletion.candidates
-        .filter(function(candidate) {
-          // We are removing candidates from level 2.
-          if (allStaticCandidates == null)  return true;
-          return !allStaticCandidates.has(candidate);
-      });
-      candidates = candidates.concat(sandboxCompletion.candidates);
-      completions = completions.concat(sandboxCompletion.completions);
+      completion.meld(sandboxCompletion);
     }
   }
 
   // Keyword-based candidates (Level 0).
+  // FIXME: adjust the weight along keyword frequency.
 
   var keywords = [
     "break", "case", "catch", "class", "continue", "debugger",
@@ -100,50 +88,53 @@ function jsCompleter(source, caret, options) {
     "null", "of", "return", "set", "super", "switch", "this", "true", "throw",
     "try", "typeof", "undefined", "var", "void", "while", "with",
   ];
-  // This autocompletion is only meaningful with 
-  if (context.completion === Completion.identifier &&
+  // This autocompletion is only meaningful with identifiers.
+  if (context.completing === Completing.identifier &&
       context.data.length === 1) {
+    var keywordCompletion = new Completion();
     for (var i = 0; i < keywords.length; i++) {
       var keyword = keywords[i];
       // The keyword must match and have something to add!
-      if (keyword.indexOf(context.data) == 0
-          && keyword.length > context.data.length) {
-        candidates.push(keyword);
-        completions.push(keyword.slice(context.data.length));
+      if (keyword.indexOf(context.data[0]) == 0
+          && keyword.length > context.data[0].length) {
+        keywordCompletion.insert(new Candidate(
+              keyword,
+              keyword.slice(context.data[0].length),
+              -2));     // They have a score of -2.
       }
     }
+    completion.meld(keywordCompletion);
   }
 
-  return {
-    candidates: candidates,
-    completions: completions,
-  };
+  completion.sort();
+  return completion;
 }
+
 
 
 
 // Generic helpers.
 //
 
-var esprima = esprima || exports;
+
 
 // Autocompletion types.
 
-var Completion = {  // Examples.
+var Completing = {  // Examples.
   identifier: 0,    // foo.ba|
   property: 1,      // foo.|
   string: 2,        // "foo".|
 };
-jsCompleter.Completion = Completion;
+jsCompleter.Completing = Completing;
 
 // Fetch data from the position of the caret in a source.
 // The data is an object containing the following:
-//  - completion: a number from the Completion enumeration.
+//  - completing: a number from the Completing enumeration.
 //  - data: information about the context. Ideally, a list of strings.
 //
 // For instance, `foo.bar.baz|`
 // (with the caret at the end of baz, even if after whitespace)
-// will return `{completion:0, data:["foo", "bar", "baz"]}`.
+// will return `{completing:0, data:["foo", "bar", "baz"]}`.
 //
 // If we cannot get an identifier, returns `null`.
 //
@@ -201,7 +192,7 @@ function inRange(index, range) {
 // Either
 //
 //  {
-//    completion: Completion.<type of completion>,
+//    completing: Completing.<type of completion>,
 //    data: <Array of string>
 //  }
 //
@@ -221,13 +212,13 @@ function contextFromToken(tokens, tokIndex, caret) {
       if (prevToken.type === esprima.Token.StringLiteral) {
         // String completion.
         return {
-          completion: Completion.string,
+          completing: Completing.string,
           data: []  // No need for data.
         };
       } else if (prevToken.type === esprima.Token.Identifier) {
         // Property completion.
         return {
-          completion: Completion.property,
+          completing: Completing.property,
           data: suckIdentifier(tokens, tokIndex, caret)
         };
       }
@@ -235,7 +226,7 @@ function contextFromToken(tokens, tokIndex, caret) {
   } else if (token.type === esprima.Token.Identifier) {
     // Identifier completion.
     return {
-      completion: Completion.identifier,
+      completing: Completing.identifier,
       data: suckIdentifier(tokens, tokIndex, caret)
     };
   }
