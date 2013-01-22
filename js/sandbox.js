@@ -1,9 +1,12 @@
 // Sandbox-based analysis.
 //
 
-// Return an object with the following fields:
-//  - candidates: A list of the matches to a possible completion.
-//  - completions: A list of the associated completion to a candidate.
+// Return a sorted Completion (see entrance/completers.js).
+//  - candidateFromDisplay: Map from display string to candidate.
+//  - candidates: A list of candidates:
+//    * display: a string of what the user sees.
+//    * postfix: a string of what is added when the user chooses this.
+//    * score: a number to grade the candidate.
 //
 // Parameters:
 //  - global: an Object in which to search.
