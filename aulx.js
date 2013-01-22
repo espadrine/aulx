@@ -341,6 +341,62 @@ function getPropertyDescriptor(obj, name) {
     obj = Object.getPrototypeOf(obj);
   }
 }
+// The weight comes from keyword frequency data at
+// http://ariya.ofilabs.com/2012/03/most-popular-javascript-keywords.html
+
+var JSKeywords = (function(keywords) {
+  var keywordWeights = {};
+  for (var i = 0; i < keywords.length; i++) {
+    // The first keyword has a weight of -2,
+    // the second one of -3, etc.
+    keywordWeights[keywords[i]] = - i - 2;
+  }
+  return keywordWeights;
+}([
+  "this",
+  "function",
+  "if",
+  "return",
+  "var",
+  "let",
+  "else",
+  "for",
+  "new",
+  "in",
+  "typeof",
+  "while",
+  "case",
+  "break",
+  "try",
+  "catch",
+  "delete",
+  "throw",
+  "switch",
+  "continue",
+  "default",
+  "instanceof",
+  "do",
+  "void",
+  "finally",
+
+  // We do not have information about the following.
+  // Also, true, false, null and undefined are not keywords stricto sensu,
+  // but autocompleting them seems nicer.
+  "true",
+  "false",
+  "null",
+  "undefined",
+  "class",
+  "super",
+  "import",
+  "export",
+  "get",
+  "of",
+  "set",
+  "const",
+  "with",
+  "debugger"
+]));
 //
 // Get a list of completions we can have, based on the state of the editor.
 // Autocompletion happens based on the following factors
@@ -422,28 +478,21 @@ function jsCompleter(source, caret, options) {
   }
 
   // Keyword-based candidates (Level 0).
-  // FIXME: adjust the weight along keyword frequency.
 
-  var keywords = [
-    "break", "case", "catch", "class", "continue", "debugger",
-    "default", "delete", "do", "else", "export", "false", "finally", "for",
-    "function", "get", "if", "import", "in", "instanceof", "let", "new",
-    "null", "of", "return", "set", "super", "switch", "this", "true", "throw",
-    "try", "typeof", "undefined", "var", "void", "while", "with",
-  ];
   // This autocompletion is only meaningful with identifiers.
   if (context.completing === Completing.identifier &&
       context.data.length === 1) {
     var keywordCompletion = new Completion();
-    for (var i = 0; i < keywords.length; i++) {
-      var keyword = keywords[i];
+    for (var keyword in JSKeywords) {
       // The keyword must match and have something to add!
       if (keyword.indexOf(context.data[0]) == 0
           && keyword.length > context.data[0].length) {
         keywordCompletion.insert(new Candidate(
               keyword,
               keyword.slice(context.data[0].length),
-              -2));     // They have a score of -2.
+              JSKeywords[keyword]));
+        // The score depends on the frequency of the keyword.
+        // See keyword.js
       }
     }
     completion.meld(keywordCompletion);

@@ -63,9 +63,15 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
 
 source = 'vo';
 caret = {line:0, ch:source.length};
-t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"void", postfix:"id", score:-2}],
-     "The JS completer works with static analysis.");
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates[0].display,
+     "void",
+     "The JS completer knows keywords (or at least 'void').");
+
+source = 'vo';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates[0].postfix,
+     "id",
+     "The JS completer completes keywords (or at least 'void').");
 
 
 // The End.

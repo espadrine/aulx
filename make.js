@@ -28,6 +28,7 @@ bundle('aulx.js', [
   'entrance/umd-begin.js',
   'js/static.js',
   'js/sandbox.js',
+  'js/keyword.js',
   'js/main.js',
   'entrance/completers.js',
   'entrance/umd-end.js',

@@ -79,28 +79,21 @@ function jsCompleter(source, caret, options) {
   }
 
   // Keyword-based candidates (Level 0).
-  // FIXME: adjust the weight along keyword frequency.
 
-  var keywords = [
-    "break", "case", "catch", "class", "continue", "debugger",
-    "default", "delete", "do", "else", "export", "false", "finally", "for",
-    "function", "get", "if", "import", "in", "instanceof", "let", "new",
-    "null", "of", "return", "set", "super", "switch", "this", "true", "throw",
-    "try", "typeof", "undefined", "var", "void", "while", "with",
-  ];
   // This autocompletion is only meaningful with identifiers.
   if (context.completing === Completing.identifier &&
       context.data.length === 1) {
     var keywordCompletion = new Completion();
-    for (var i = 0; i < keywords.length; i++) {
-      var keyword = keywords[i];
+    for (var keyword in JSKeywords) {
       // The keyword must match and have something to add!
       if (keyword.indexOf(context.data[0]) == 0
           && keyword.length > context.data[0].length) {
         keywordCompletion.insert(new Candidate(
               keyword,
               keyword.slice(context.data[0].length),
-              -2));     // They have a score of -2.
+              JSKeywords[keyword]));
+        // The score depends on the frequency of the keyword.
+        // See keyword.js
       }
     }
     completion.meld(keywordCompletion);
