@@ -444,6 +444,10 @@ function jsCompleter(source, caret, options) {
   // statistics from what the user actually selects.
 
   var context = getContext(source, caret);
+  if (!context) {
+    // We couldn't get the context, we won't be able to complete.
+    return completion;
+  }
 
   // Static analysis (Level 2).
 
@@ -537,8 +541,10 @@ jsCompleter.Completing = Completing;
 //  - source: a string of JS code.
 //  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
 function getContext(source, caret) {
-  var tokens = esprima.tokenize(source);
-  if (tokens[tokens.length - 1].type !== esprima.Token.EOF) {
+  var tokens = esprima.tokenize(source, {loc:true});
+  if (tokens[tokens.length - 1].loc.end.line - 1 < caret.line ||
+     (tokens[tokens.length - 1].loc.end.line - 1 === caret.line &&
+      tokens[tokens.length - 1].loc.end.column < caret.column)) {
     // If the last token is not an EOF, we didn't tokenize it correctly.
     // This special case is handled in case we couldn't tokenize, but the last
     // token that *could be tokenized* was an identifier.
@@ -552,18 +558,18 @@ function getContext(source, caret) {
   var highIndex = tokens.length - 1;
   var tokIndex = (tokens.length / 2) | 0;   // Truncating to an integer.
   var token;
-  while (tokIndex !== lowIndex) {
+  while (lowIndex < highIndex) {
     token = tokens[tokIndex];
     // Note: esprima line numbers start with 1, while caret starts with 0.
-    if (token.lineNumber - 1 < caret.line) {
+    if (token.loc.start.line - 1 < caret.line) {
       lowIndex = tokIndex;
-    } else if (token.lineNumber - 1 > caret.line) {
+    } else if (token.loc.start.line - 1 > caret.line) {
       highIndex = tokIndex;
-    } else if (token.lineNumber - 1 === caret.line) {
+    } else if (token.loc.start.line - 1 === caret.line) {
       // Now, we need the correct column.
       var range = [
-        token.range[0] - token.lineStart,
-        token.range[1] - token.lineStart,
+        token.loc.start.column,
+        token.loc.end.column
       ];
       if (inRange(caret.ch, range)) {
         // We're done. We've found the token in which the cursor is.
@@ -571,10 +577,10 @@ function getContext(source, caret) {
       } else if (caret.ch <= range[0]) {
         highIndex = tokIndex;
       } else if (range[1] < caret.ch) {
-        lowIndex = tokIndex;
+        lowIndex = tokIndex + 1;
       }
     }
-    tokIndex = ((highIndex + lowIndex) / 2) | 0;
+    tokIndex = (highIndex + lowIndex) >>> 1;
   }
   return contextFromToken(tokens, tokIndex, caret);
 }
@@ -600,17 +606,16 @@ function inRange(index, range) {
 function contextFromToken(tokens, tokIndex, caret) {
   var token = tokens[tokIndex];
   var prevToken;
-  if (token.type === esprima.Token.Punctuator &&
-      token.value === '.') {
+  if (token.type === "Punctuator" && token.value === '.') {
     if (tokens[tokIndex - 1]) {
       prevToken = tokens[tokIndex - 1];
-      if (prevToken.type === esprima.Token.StringLiteral) {
+      if (prevToken.type === "String") {
         // String completion.
         return {
           completing: Completing.string,
           data: []  // No need for data.
         };
-      } else if (prevToken.type === esprima.Token.Identifier) {
+      } else if (prevToken.type === "Identifier") {
         // Property completion.
         return {
           completing: Completing.property,
@@ -618,7 +623,7 @@ function contextFromToken(tokens, tokIndex, caret) {
         };
       }
     }
-  } else if (token.type === esprima.Token.Identifier) {
+  } else if (token.type === "Identifier") {
     // Identifier completion.
     return {
       completing: Completing.identifier,
@@ -636,23 +641,18 @@ function contextFromToken(tokens, tokIndex, caret) {
 // For instance, `foo.bar.ba|z` gives `['foo','bar','ba']`.
 function suckIdentifier(tokens, tokIndex, caret) {
   var token = tokens[tokIndex];
-  if (token.type === esprima.Token.EOF) {
-    tokIndex--;
-    token = tokens[tokIndex];
-  }
-  if (token.type !== esprima.Token.Identifier &&
-      token.type !== esprima.Token.Punctuator) {
+  if (token.type !== "Identifier" &&
+      token.type !== "Punctuator") {
     // Nothing to suck. Nothing to complete.
     return null;
   }
 
   // We now know there is something to suck into identifier.
   var identifier = [];
-  while (token.type === esprima.Token.Identifier ||
-         (token.type === esprima.Token.Punctuator &&
-          token.value === '.')) {
-    if (token.type === esprima.Token.Identifier) {
-      var endCh = token.range[1] - token.lineStart;
+  while (token.type === "Identifier" ||
+         (token.type === "Punctuator" && token.value === '.')) {
+    if (token.type === "Identifier") {
+      var endCh = token.loc.end.column;
       var tokValue;
       if (caret.ch < endCh) {
         tokValue = token.value.slice(0, endCh - caret.ch + 1);
