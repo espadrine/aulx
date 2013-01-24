@@ -26,10 +26,15 @@ function bundle(file, inputs) {
 //
 bundle('aulx.js', [
   'entrance/umd-begin.js',
+  'entrance/completers.js',
+
+  // JS completion files.
+  'entrance/compl-begin.js',
   'js/static.js',
   'js/sandbox.js',
   'js/keyword.js',
   'js/main.js',
-  'entrance/completers.js',
+  'entrance/compl-end.js',
+
   'entrance/umd-end.js',
 ]);

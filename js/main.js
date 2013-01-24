@@ -107,6 +107,8 @@ function jsCompleter(source, caret, options) {
   return completion;
 }
 
+exports.js = jsCompleter;
+
 
 
 
@@ -181,12 +183,8 @@ function getContext(source, caret) {
     tokIndex = (highIndex + lowIndex) >>> 1;
   }
   return contextFromToken(tokens, tokIndex, caret);
-}
+};
 jsCompleter.getContext = getContext;
-
-function inRange(index, range) {
-  return index > range[0] && index <= range[1];
-}
 
 // Either
 //
@@ -203,10 +201,9 @@ function inRange(index, range) {
 //  - caret: {line:0, ch:0}, position of the caret.
 function contextFromToken(tokens, tokIndex, caret) {
   var token = tokens[tokIndex];
-  var prevToken;
+  var prevToken = tokens[tokIndex - 1];
   if (token.type === "Punctuator" && token.value === '.') {
-    if (tokens[tokIndex - 1]) {
-      prevToken = tokens[tokIndex - 1];
+    if (prevToken) {
       if (prevToken.type === "String") {
         // String completion.
         return {
@@ -228,7 +225,7 @@ function contextFromToken(tokens, tokIndex, caret) {
       data: suckIdentifier(tokens, tokIndex, caret)
     };
   }
-}
+};
 
 // suckIdentifier aggregates the whole identifier into a list of strings, taking
 // only the part before the caret.
@@ -267,4 +264,4 @@ function suckIdentifier(tokens, tokIndex, caret) {
     }
   }
   return identifier;
-}
+};

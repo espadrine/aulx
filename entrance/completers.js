@@ -6,16 +6,12 @@
 //  - caret: Object containing two fields:
 //    * line: the line number of the caret, starting with zero.
 //    * ch: the column of the caret, starting with zero.
-//  - options: Object containing optional parameters:
-//    * line: String of the current line (which the editor may provide
-//      more efficiently than the default way.
+//  - options: Object containing optional parameters.
 //
 // Return an object with the following fields:
 //  - candidates: A list of the matches to a possible completion.
 //  - completions: A list of the associated completion to a candidate.
-var completer = {
-  js: jsCompleter
-};
+var completer = {};
 
 exports = completer;
 
@@ -60,6 +56,8 @@ Map.prototype = {
 };
 
 
+
+
 // Completion-related data structures.
 //
 
@@ -97,3 +95,10 @@ Completion.prototype = {
   }
 };
 
+
+
+// Shared function: inRange.
+// Detect whether an index is within a range.
+function inRange(index, range) {
+  return index > range[0] && index <= range[1];
+}
