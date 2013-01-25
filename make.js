@@ -30,10 +30,21 @@ bundle('aulx.js', [
 
   // JS completion files.
   'entrance/compl-begin.js',
+  'js/main.js',
   'js/static.js',
   'js/sandbox.js',
   'js/keyword.js',
-  'js/main.js',
+  'entrance/compl-end.js',
+
+  // CSS completion files.
+  'entrance/compl-begin.js',
+  'css/main.js',
+  // Import tokenizer (with export shim).
+  'css/css-token-begin.js',
+  'css/tokenizer.js',
+  'css/css-token-end.js',
+  // Properties.
+  'css/properties.js',
   'entrance/compl-end.js',
 
   'entrance/umd-end.js',

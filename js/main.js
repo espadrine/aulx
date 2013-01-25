@@ -144,7 +144,7 @@ function getContext(source, caret) {
   var tokens = esprima.tokenize(source, {loc:true});
   if (tokens[tokens.length - 1].loc.end.line - 1 < caret.line ||
      (tokens[tokens.length - 1].loc.end.line - 1 === caret.line &&
-      tokens[tokens.length - 1].loc.end.column < caret.column)) {
+      tokens[tokens.length - 1].loc.end.column < caret.ch)) {
     // If the last token is not an EOF, we didn't tokenize it correctly.
     // This special case is handled in case we couldn't tokenize, but the last
     // token that *could be tokenized* was an identifier.
