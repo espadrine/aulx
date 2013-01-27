@@ -16,13 +16,15 @@
 //    * line: the line number of the caret, starting with zero.
 //    * ch: the column of the caret, starting with zero.
 //  - options: Object containing optional parameters:
-//    * line: String of the current line (which the editor may provide
+//    * contextFrom: Part of the source necessary to get the context.
+//      May be a string of the current line (which the editor may provide
 //      more efficiently than the default way).
 //    * global: global object. Can be used to perform level 1 (see above).
 //    * parser: a JS parser that is compatible with
 //      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
+//    * tokenizer: a JS tokenizer that is compatible with Esprima.
 //    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
-//      analysis. Recommendation: run it at every newline.
+//      analysis. Recommendation: run it at every change of line.
 //
 // Return a sorted Completion (see entrance/completers.js).
 //  - candidateFromDisplay: Map from display string to candidate.
@@ -41,7 +43,7 @@ function jsCompleter(source, caret, options) {
   // FIXME: implement a score-based system that adjusts its weights based on
   // statistics from what the user actually selects.
 
-  var context = getContext(source, caret);
+  var context = getContext(source, caret, options.tokenizer);
   if (!context) {
     // We couldn't get the context, we won't be able to complete.
     return completion;
@@ -140,8 +142,9 @@ jsCompleter.Completing = Completing;
 // Parameters:
 //  - source: a string of JS code.
 //  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
-function getContext(source, caret) {
-  var tokens = esprima.tokenize(source, {loc:true});
+function getContext(source, caret, tokenize) {
+  tokenize = tokenize || esprima.tokenize;
+  var tokens = tokenize(source, {loc:true});
   if (tokens[tokens.length - 1].loc.end.line - 1 < caret.line ||
      (tokens[tokens.length - 1].loc.end.line - 1 === caret.line &&
       tokens[tokens.length - 1].loc.end.column < caret.ch)) {
