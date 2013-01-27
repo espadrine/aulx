@@ -43,7 +43,8 @@ function jsCompleter(source, caret, options) {
   // FIXME: implement a score-based system that adjusts its weights based on
   // statistics from what the user actually selects.
 
-  var context = getContext(source, caret, options.tokenizer);
+  var context = getContext(options.contextFrom || source, caret,
+      options.tokenizer);
   if (!context) {
     // We couldn't get the context, we won't be able to complete.
     return completion;
