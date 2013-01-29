@@ -135,13 +135,15 @@ function inRange(index, range) {
 //    * line: the line number of the caret, starting with zero.
 //    * ch: the column of the caret, starting with zero.
 //  - options: Object containing optional parameters:
-//    * line: String of the current line (which the editor may provide
+//    * contextFrom: Part of the source necessary to get the context.
+//      May be a string of the current line (which the editor may provide
 //      more efficiently than the default way).
 //    * global: global object. Can be used to perform level 1 (see above).
 //    * parser: a JS parser that is compatible with
 //      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
+//    * tokenizer: a JS tokenizer that is compatible with Esprima.
 //    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
-//      analysis. Recommendation: run it at every newline.
+//      analysis. Recommendation: run it at every change of line.
 //
 // Return a sorted Completion (see entrance/completers.js).
 //  - candidateFromDisplay: Map from display string to candidate.
@@ -160,7 +162,8 @@ function jsCompleter(source, caret, options) {
   // FIXME: implement a score-based system that adjusts its weights based on
   // statistics from what the user actually selects.
 
-  var context = getContext(source, caret);
+  var context = getContext(options.contextFrom || source, caret,
+      options.tokenizer);
   if (!context) {
     // We couldn't get the context, we won't be able to complete.
     return completion;
@@ -259,8 +262,9 @@ jsCompleter.Completing = Completing;
 // Parameters:
 //  - source: a string of JS code.
 //  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
-function getContext(source, caret) {
-  var tokens = esprima.tokenize(source, {loc:true});
+function getContext(source, caret, tokenize) {
+  tokenize = tokenize || esprima.tokenize;
+  var tokens = tokenize(source, {loc:true});
   if (tokens[tokens.length - 1].loc.end.line - 1 < caret.line ||
      (tokens[tokens.length - 1].loc.end.line - 1 === caret.line &&
       tokens[tokens.length - 1].loc.end.column < caret.ch)) {
@@ -973,9 +977,12 @@ function tokenize(str, options) {
 	// Line number information.
 	var line = 0;
 	var column = 0;
+	// The only use of lastLineLength is in reconsume().
+	var lastLineLength = 0;
 	var incrLineno = function() {
-	  line += 1;
-	  column = 0;
+		line += 1;
+		lastLineLength = column;
+		column = 0;
 	};
 	var locStart = {line:line, column:column};
 
@@ -986,11 +993,22 @@ function tokenize(str, options) {
 		i += num;
 		code = str.charCodeAt(i);
 		if (newline(code)) incrLineno();
-		else column += 1;
+		else column += num;
 		//console.log('Consume '+i+' '+String.fromCharCode(code) + ' 0x' + code.toString(16));
 		return true;
 	};
-	var reconsume = function() { i -= 1; column -= 1; return true; };
+	var reconsume = function() {
+		i -= 1;
+		if (newline(code)) {
+			line -= 1;
+			column = lastLineLength;
+		} else {
+			column -= 1;
+		}
+		locStart.line = line;
+		locStart.column = column;
+		return true;
+	};
 	var eof = function() { return i >= str.length; };
 	var donothing = function() {};
 	var emit = function(token) {
@@ -1001,8 +1019,9 @@ function tokenize(str, options) {
 		}
 		if (options.loc === true) {
 			token.loc = {};
-			token.loc.start = {line:locStart.line, column:locStart.column - 1};
-			token.loc.end = {line:line, column:column - 1};
+			token.loc.start = {line:locStart.line, column:locStart.column};
+			locStart = {line: line, column: column};
+			token.loc.end = locStart;
 		}
 		tokens.push(token);
 		//console.log('Emitting ' + token);
@@ -1013,8 +1032,6 @@ function tokenize(str, options) {
 	var parseerror = function() { console.log("Parse error at index " + i + ", processing codepoint 0x" + code.toString(16) + " in state " + state + ".");return true; };
 	var switchto = function(newstate) {
 		state = newstate;
-		locStart.line = line;
-		locStart.column = column;
 		//console.log('Switching to ' + state);
 		return true;
 	};
@@ -1657,6 +1674,14 @@ function completeProperties(startProp) {
 
 // FIXME: put the associated parameters somehow.
 // FIXME: give properties a score proportional to frequency in common code.
+//
+// List of CSS properties fetched using the following command:
+//
+//      curl 'www.w3.org/TR/CSS21/propidx.html' \
+//      | grep -e '^<tr><td><a href=".*">.*</a>$' \
+//      | grep -oE "'(.*)'" \
+//      | sed "s/'//g" > properties
+//
 var properties = {
   "azimuth": [],
   "background-attachment": [],
