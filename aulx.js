@@ -264,10 +264,13 @@ jsCompleter.Completing = Completing;
 //  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
 function getContext(source, caret, tokenize) {
   tokenize = tokenize || esprima.tokenize;
-  var tokens = tokenize(source, {loc:true});
-  if (tokens[tokens.length - 1].loc.end.line - 1 < caret.line ||
-     (tokens[tokens.length - 1].loc.end.line - 1 === caret.line &&
-      tokens[tokens.length - 1].loc.end.column < caret.ch)) {
+  var reducedSource = reduceContext('' + source, caret);
+  if (reducedSource === null) { return null; }
+  var tokens = tokenize(reducedSource, {loc:true});
+  if (tokens.length > 0 &&
+      (tokens[tokens.length - 1].loc.end.line - 1 < caret.line ||
+       (tokens[tokens.length - 1].loc.end.line - 1 === caret.line &&
+        tokens[tokens.length - 1].loc.end.column < caret.ch))) {
     // If the last token is not an EOF, we didn't tokenize it correctly.
     // This special case is handled in case we couldn't tokenize, but the last
     // token that *could be tokenized* was an identifier.
@@ -325,6 +328,7 @@ jsCompleter.getContext = getContext;
 function contextFromToken(tokens, tokIndex, caret) {
   var token = tokens[tokIndex];
   var prevToken = tokens[tokIndex - 1];
+  if (!token) { return; }
   if (token.type === "Punctuator" && token.value === '.') {
     if (prevToken) {
       if (prevToken.type === "String") {
@@ -388,6 +392,238 @@ function suckIdentifier(tokens, tokIndex, caret) {
   }
   return identifier;
 };
+
+
+
+// Reduce the amount of source code to contextualize.
+//
+// For instance, `foo\nfoo.bar.baz`
+// will return `foo.bar.baz`.
+//
+// If we cannot get an identifier, returns `null`.
+//
+// Parameters:
+//  - source: a string of JS code.
+//  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
+function reduceContext(source, caret) {
+  var line = 0;
+  var column = 0;
+
+  // Find the position of the previous line terminator.
+  var iLT = 0;
+  var newSpot;
+
+  var i = 0;
+  var ch;
+  var nextch;
+  while (line <= caret.line && column <= caret.ch && i < source.length) {
+    ch = source.charCodeAt(i);
+
+    // Count the lines.
+    if (isLineTerminator(ch)) {
+      line++;
+      column = 0;
+      iLT = i;
+      i++;
+      continue;
+    } else {
+      column++;
+    }
+
+    if (ch === 34 || ch == 39) {
+      // Single / double quote: starts a string.
+      newSpot = scanStringLiteral(source, i, line, column);
+      i = newSpot.index;
+      line = newSpot.line;
+      column = newSpot.column;
+    } else if (ch === 47) {
+      // Slash.
+      nextch = source.charCodeAt(i + 1);
+      prevch = source.charCodeAt(i - 1);
+      if (nextch === 42 && prevch !== 92) {
+        // Star: we have a comment.
+        // Not a backslash before: it isn't in a regex.
+        newSpot = skipMultilineComment(source, i, line, column);
+        i = newSpot.index;
+        line = newSpot.line;
+        column = newSpot.column;
+      }
+      i++;
+    }
+
+    // Have we gone too far?
+    if (line > caret.line || line === caret.line && column > caret.ch + 1) {
+      return null;
+    }
+  }
+
+  // FIXME: check for multiline comments.
+  // Find the next line terminator.
+  /*
+  var iEnd = i;
+  while (iEnd < source.length) {
+    ch = source.charCodeAt(iEnd);
+    if (isLineTerminator(ch)) {
+      if (source.charCodeAt(iEnd - 1) !== 92) {
+        // The last character of the line mustn't be a backslash.
+        break;
+      }
+    }
+    iEnd++;
+  }
+  */
+
+  return source.slice(iLT);
+}
+
+// Useful functions stolen from Esprima.
+
+
+// Invisible characters.
+
+// 7.2 White Space
+
+function isWhiteSpace(ch) {
+    return (ch === 32) ||  // space
+        (ch === 9) ||      // tab
+        (ch === 0xB) ||
+        (ch === 0xC) ||
+        (ch === 0xA0) ||
+        (ch >= 0x1680 && '\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\uFEFF'.indexOf(String.fromCharCode(ch)) > 0);
+}
+
+// 7.3 Line Terminators
+
+function isLineTerminator(ch) {
+    return (ch === 10) || (ch === 13) || (ch === 0x2028) || (ch === 0x2029);
+}
+
+
+// Strings.
+
+// 7.8.4 String Literals
+
+function scanStringLiteral(source, index, lineNumber, column) {
+    var quote, ch, code, restore;
+    var length = source.length;
+    var indexAtStartOfLine = index;
+
+    quote = source[index];
+    ++index;
+
+    while (index < length) {
+        ch = source[index++];
+
+        if (ch === quote) {
+            break;
+        } else if (ch === '\\') {
+            ch = source[index++];
+            if (!ch || !isLineTerminator(ch.charCodeAt(0))) {
+                switch (ch) {
+                case 'n': break;
+                case 'r': break;
+                case 't': break;
+                case 'u':
+                case 'x':
+                    restore = index;
+                    index = scanHexEscape(source, index, ch);
+                    if (index < 0) {
+                        index = restore;
+                    }
+                    break;
+                case 'b': break;
+                case 'f': break;
+                case 'v': break;
+
+                default:
+                    if (isOctalDigit(ch)) {
+                        code = '01234567'.indexOf(ch);
+
+                        if (index < length && isOctalDigit(source[index])) {
+                            code = code * 8 + '01234567'.indexOf(source[index++]);
+
+                            // 3 digits are only allowed when string starts
+                            // with 0, 1, 2, 3
+                            if ('0123'.indexOf(ch) >= 0 &&
+                                    index < length &&
+                                    isOctalDigit(source[index])) {
+                                code = code * 8 + '01234567'.indexOf(source[index++]);
+                            }
+                        }
+                    }
+                    break;
+                }
+            } else {
+                ++lineNumber;
+                if (ch ===  '\r' && source[index] === '\n') {
+                    ++index;
+                }
+                indexAtStartOfLine = index + 1;
+            }
+        } else if (isLineTerminator(ch.charCodeAt(0))) {
+            break;
+        }
+    }
+
+    return {
+      index: index,
+      line: lineNumber,
+      column: index - indexAtStartOfLine
+    };
+}
+
+function scanHexEscape(source, index, prefix) {
+    var i, len, ch, code = 0;
+
+    len = (prefix === 'u') ? 4 : 2;
+    for (i = 0; i < len; ++i) {
+        if (index < source.length && isHexDigit(source[index])) {
+            ch = source[index++];
+            code = code * 16 + '0123456789abcdef'.indexOf(ch.toLowerCase());
+        } else {
+            return -1;
+        }
+    }
+    return index;
+}
+
+function isOctalDigit(ch) {
+    return '01234567'.indexOf(ch) >= 0;
+}
+
+// The following function is not from Esprima.
+// The index must be positioned in the source on a slash
+// that starts a multiline comment.
+function skipMultilineComment(source, index, line, targetLine, column) {
+  var ch = 47;
+  while (index < source.length) {
+    ch = source[index].charCodeAt(0);
+    if (ch == 42) {
+      // Current character is a star.
+      if (index === source.length - 1) {
+        break;
+      }
+      if (source[index + 1].charCodeAt(0) === 47) {
+        // Next character is a slash.
+        index++;
+        break;
+      }
+    }
+
+    index++;
+    if (isLineTerminator(ch)) {
+      line++;
+      column = 0;
+    } else {
+      column++;
+    }
+  }
+  return {
+    index: index,
+    line: line,
+    column: column
+  };
+}
 // Static analysis helper functions.
 //
 
