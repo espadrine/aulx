@@ -27,8 +27,8 @@ Done:
 
 To do:
 
-- Better static analysis for JS,
-- HTML,
+- Static type inference for JS,
+- HTML (including inlined CSS and JS autocompletion),
 - CoffeeScript, SASS, … We can go crazy with this!
 
 
