@@ -54,6 +54,9 @@ function identifierLookup(global, context) {
   } else if (context.completing === Completing.string) {
     // "foo".|
     value = global.String.prototype;
+  } else if (context.completing === Completing.regex) {
+    // /foo/.|
+    value = global.RegExp.prototype;
   }
 
   var completion = new Completion();

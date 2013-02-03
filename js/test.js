@@ -51,6 +51,16 @@ t.eq(jsCompleter(source, caret, {global:global}).candidates,
      [{display:"big", postfix:"big", score:-1}],
      "The JS completer does string completion.");
 
+source = '/foo/.';
+caret = {line:0, ch:source.length};
+// Fake String.prototype.
+global.RegExp = Object.create(null);
+global.RegExp.prototype = Object.create(null);
+global.RegExp.prototype.test = 'something';
+t.eq(jsCompleter(source, caret, {global:global}).candidates,
+     [{display:"test", postfix:"test", score:-1}],
+     "The JS completer does RegExp completion.");
+
 // Testing static.js
 
 source = 'var foobar; foo';

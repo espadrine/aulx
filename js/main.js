@@ -126,6 +126,7 @@ var Completing = {  // Examples.
   identifier: 0,    // foo.ba|
   property: 1,      // foo.|
   string: 2,        // "foo".|
+  regex: 3          // /foo/.|
 };
 jsCompleter.Completing = Completing;
 
@@ -212,17 +213,23 @@ function contextFromToken(tokens, tokIndex, caret) {
   if (!token) { return; }
   if (token.type === "Punctuator" && token.value === '.') {
     if (prevToken) {
-      if (prevToken.type === "String") {
+      if (prevToken.type === "Identifier") {
+        // Property completion.
+        return {
+          completing: Completing.property,
+          data: suckIdentifier(tokens, tokIndex, caret)
+        };
+      } else if (prevToken.type === "String") {
         // String completion.
         return {
           completing: Completing.string,
           data: []  // No need for data.
         };
-      } else if (prevToken.type === "Identifier") {
-        // Property completion.
+      } else if (prevToken.type === "RegularExpression") {
+        // Regex completion.
         return {
-          completing: Completing.property,
-          data: suckIdentifier(tokens, tokIndex, caret)
+          completing: Completing.regex,
+          data: []  // No need for data.
         };
       }
     }
