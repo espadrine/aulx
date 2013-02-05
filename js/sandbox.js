@@ -21,7 +21,7 @@ function identifierLookup(global, context) {
     // foo.ba|
     for (var i = 0; i < context.data.length - 1; i++) {
       var descriptor = getPropertyDescriptor(value, context.data[i]);
-      if (descriptor.get) {
+      if (descriptor && descriptor.get) {
         // This is a getter / setter.
         // We might trigger a side-effect by going deeper.
         // We must stop before the world blows up in a Michael Bay manner.
@@ -40,7 +40,7 @@ function identifierLookup(global, context) {
     // foo.|
     for (var i = 0; i < context.data.length; i++) {
       var descriptor = getPropertyDescriptor(value, context.data[i]);
-      if (descriptor.get) {
+      if (descriptor && descriptor.get) {
         // This is a getter / setter.
         // We might trigger a side-effect by going deeper.
         // We must stop before the world blows up in a Michael Bay manner.
