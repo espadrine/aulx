@@ -286,6 +286,7 @@ function getContext(source, caret, tokenize) {
   var highIndex = tokens.length - 1;
   var tokIndex = (tokens.length / 2) | 0;   // Truncating to an integer.
   var tokIndexPrevValue = tokIndex;
+  var lastCall = false;
   var token;
   while (lowIndex <= highIndex) {
     token = tokens[tokIndex];
@@ -310,8 +311,11 @@ function getContext(source, caret, tokenize) {
       }
     }
     tokIndex = (highIndex + lowIndex) >>> 1;
-    if (tokIndex === tokIndexPrevValue) { break; }
-    else { tokIndexPrevValue = tokIndex; }
+    if (lastCall) { break; }
+    if (tokIndex === tokIndexPrevValue) {
+      tokIndex++;
+      lastCall = true;
+    } else { tokIndexPrevValue = tokIndex; }
   }
   return contextFromToken(tokens, tokIndex, caret);
 };
