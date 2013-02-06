@@ -90,7 +90,8 @@ Completion.prototype = {
   },
   sort: function() {
     this.candidates.sort(function(a, b) {
-      return a.score - b.score;
+      // A huge score comes first.
+      return b.score - a.score;
     });
   }
 };
