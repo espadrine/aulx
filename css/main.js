@@ -92,8 +92,10 @@ function getContext(source, caret) {
   var lowIndex = 0;
   var highIndex = tokens.length - 1;
   var tokIndex = (tokens.length / 2) | 0;   // Truncating to an integer.
+  var tokIndexPrevValue = tokIndex;
+  var lastCall = false;
   var token;
-  while (lowIndex < highIndex) {
+  while (lowIndex <= highIndex) {
     token = tokens[tokIndex];
     // Note: esprima line numbers start with 1, while caret starts with 0.
     if (token.loc.start.line < caret.line) {
@@ -116,6 +118,11 @@ function getContext(source, caret) {
       }
     }
     tokIndex = (highIndex + lowIndex) >>> 1;
+    if (lastCall) { break; }
+    if (tokIndex === tokIndexPrevValue) {
+      tokIndex++;
+      lastCall = true;
+    } else { tokIndexPrevValue = tokIndex; }
   }
   return contextFromToken(tokens, tokIndex, caret);
 };
