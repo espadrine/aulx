@@ -29,6 +29,27 @@ t.eq(jsCompleter.getContext(source, caret),
        data: ['foo', 'ba'] },
      "getContext cuts identifiers on the cursor.");
 
+source = 'var foo.bar;\nbaz';
+caret = {line:1, ch:3};
+t.eq(jsCompleter.getContext(source, caret),
+     { completing: jsCompleter.Completing.identifier,
+       data: ['baz'] },
+     "getContext deals with multiple lines.");
+
+source = 'var foo/*.bar;\n bar*/ baz';
+caret = {line:1, ch:10};
+t.eq(jsCompleter.getContext(source, caret),
+     { completing: jsCompleter.Completing.identifier,
+       data: ['baz'] },
+     "getContext deals with multiple line comments.");
+
+source = 'var foo "bar\\\n bar" baz';
+caret = {line:1, ch:9};
+t.eq(jsCompleter.getContext(source, caret),
+     { completing: jsCompleter.Completing.identifier,
+       data: ['baz'] },
+     "getContext deals with multiple line strings.");
+
 // Testing sandbox.js
 
 source = 'foo.ba';

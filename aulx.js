@@ -266,18 +266,10 @@ jsCompleter.Completing = Completing;
 //  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
 function getContext(source, caret, tokenize) {
   tokenize = tokenize || esprima.tokenize;
-  var reducedSource = reduceContext('' + source, caret);
-  if (reducedSource === null) { return null; }
-  var tokens = tokenize(reducedSource, {loc:true});
-  if (tokens.length > 0 &&
-      (tokens[tokens.length - 1].loc.end.line - 1 < caret.line ||
-       (tokens[tokens.length - 1].loc.end.line - 1 === caret.line &&
-        tokens[tokens.length - 1].loc.end.column < caret.ch))) {
-    // If the last token is not an EOF, we didn't tokenize it correctly.
-    // This special case is handled in case we couldn't tokenize, but the last
-    // token that *could be tokenized* was an identifier.
-    return null;
-  }
+  var reduction = reduceContext('' + source, caret);
+  if (reduction === null) { return null; }
+  caret = reduction[1];
+  var tokens = tokenize(reduction[0], {loc:true});
 
   // At this point, we know we were able to tokenize it.
   // Find the token just before the caret.
@@ -290,12 +282,11 @@ function getContext(source, caret, tokenize) {
   var token;
   while (lowIndex <= highIndex) {
     token = tokens[tokIndex];
-    // Note: esprima line numbers start with 1, while caret starts with 0.
-    if (token.loc.start.line - 1 < caret.line) {
-      lowIndex = tokIndex;
-    } else if (token.loc.start.line - 1 > caret.line) {
+    // Note: The caret is on the first line (as a result of reduceContext).
+    // Also, Esprima lines start with 1.
+    if (token.loc.start.line > 1) {
       highIndex = tokIndex;
-    } else if (token.loc.start.line - 1 === caret.line) {
+    } else {
       // Now, we need the correct column.
       var range = [
         token.loc.start.column,
@@ -423,31 +414,39 @@ function suckIdentifier(tokens, tokIndex, caret) {
 function reduceContext(source, caret) {
   var line = 0;
   var column = 0;
+  var fakeCaret = {line: caret.line, ch: caret.ch};
 
   // Find the position of the previous line terminator.
   var iLT = 0;
   var newSpot;
+  var changedLine = false;
+  var haveSkipped = false;
 
   var i = 0;
   var ch;
   var nextch;
-  while (line <= caret.line && column <= caret.ch && i < source.length) {
+  while ((line < caret.line
+          || (line === caret.line && column < caret.ch))
+         && i < source.length) {
     ch = source.charCodeAt(i);
 
     // Count the lines.
     if (isLineTerminator(ch)) {
       line++;
       column = 0;
-      iLT = i;
       i++;
+      iLT = i;
       continue;
     } else {
       column++;
     }
 
-    if (ch === 34 || ch == 39) {
+    if (ch === 34 || ch === 39) {
       // Single / double quote: starts a string.
-      newSpot = scanStringLiteral(source, i, line, column);
+      newSpot = skipStringLiteral(source, i, line, column);
+      haveSkipped = true;
+      changedLine = line < newSpot.line;
+
       i = newSpot.index;
       line = newSpot.line;
       column = newSpot.column;
@@ -456,19 +455,44 @@ function reduceContext(source, caret) {
       nextch = source.charCodeAt(i + 1);
       prevch = source.charCodeAt(i - 1);
       if (nextch === 42 && prevch !== 92) {
-        // Star: we have a comment.
+        // Star: we have a multiline comment.
         // Not a backslash before: it isn't in a regex.
         newSpot = skipMultilineComment(source, i, line, column);
+        haveSkipped = true;
+        changedLine = line < newSpot.line;
+
         i = newSpot.index;
         line = newSpot.line;
         column = newSpot.column;
+      } else if (nextch === 47) {
+        // Two consecutive slashes: we have a single-line comment.
+        i++;
+        while (!isLineTerminator(ch) && i < source.length) {
+          ch = source.charCodeAt(i);
+          i++;
+          column++;
+        }
+        // `i` is on a line terminator.
+        i -= 2;
       }
-      i++;
     }
 
-    // Have we gone too far?
-    if (line > caret.line || line === caret.line && column > caret.ch + 1) {
-      return null;
+    if (haveSkipped && isLineTerminator(source.charCodeAt(i))) {
+      haveSkipped = false;
+      continue;
+    }
+    if (changedLine) {
+      // Have we gone too far?
+      if (line > caret.line || line === caret.line && column > caret.ch + 1) {
+        return null;
+      } else if (line === caret.line) {
+        iLT = i;
+        // We need to reset the fake caret's position.
+        column = 0;
+      }
+      changedLine = false;
+    } else {
+      i++;
     }
   }
 
@@ -488,7 +512,9 @@ function reduceContext(source, caret) {
   }
   */
 
-  return source.slice(iLT);
+  fakeCaret.line = 0;
+  fakeCaret.ch = column;
+  return [source.slice(iLT), fakeCaret];
 }
 
 // Useful functions stolen from Esprima.
@@ -518,10 +544,10 @@ function isLineTerminator(ch) {
 
 // 7.8.4 String Literals
 
-function scanStringLiteral(source, index, lineNumber, column) {
+function skipStringLiteral(source, index, lineNumber, column) {
     var quote, ch, code, restore;
     var length = source.length;
-    var indexAtStartOfLine = index;
+    var indexAtStartOfLine = index - 1;
 
     quote = source[index];
     ++index;
@@ -573,9 +599,11 @@ function scanStringLiteral(source, index, lineNumber, column) {
                 if (ch ===  '\r' && source[index] === '\n') {
                     ++index;
                 }
-                indexAtStartOfLine = index + 1;
+                indexAtStartOfLine = index;
             }
         } else if (isLineTerminator(ch.charCodeAt(0))) {
+            ++lineNumber;
+            indexAtStartOfLine = index;
             break;
         }
     }
@@ -606,6 +634,10 @@ function isOctalDigit(ch) {
     return '01234567'.indexOf(ch) >= 0;
 }
 
+function isHexDigit(ch) {
+    return '0123456789abcdefABCDEF'.indexOf(ch) >= 0;
+}
+
 // The following function is not from Esprima.
 // The index must be positioned in the source on a slash
 // that starts a multiline comment.
@@ -620,7 +652,8 @@ function skipMultilineComment(source, index, line, targetLine, column) {
       }
       if (source[index + 1].charCodeAt(0) === 47) {
         // Next character is a slash.
-        index++;
+        index += 2;
+        column += 2;
         break;
       }
     }
