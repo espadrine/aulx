@@ -376,25 +376,11 @@ function reduceContext(source, caret) {
     }
   }
 
-  // FIXME: check for multiline comments.
-  // Find the next line terminator.
-  /*
-  var iEnd = i;
-  while (iEnd < source.length) {
-    ch = source.charCodeAt(iEnd);
-    if (isLineTerminator(ch)) {
-      if (source.charCodeAt(iEnd - 1) !== 92) {
-        // The last character of the line mustn't be a backslash.
-        break;
-      }
-    }
-    iEnd++;
-  }
-  */
-
   fakeCaret.line = 0;
   fakeCaret.ch = column;
-  return [source.slice(iLT), fakeCaret];
+  // We can limit tokenization between beginning of line
+  // to position of the caret.
+  return [source.slice(iLT, iLT + column + 1), fakeCaret];
 }
 
 // Useful functions stolen from Esprima.
