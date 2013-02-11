@@ -281,10 +281,11 @@ function suckIdentifier(tokens, tokIndex, caret) {
 
 
 
-// Reduce the amount of source code to contextualize.
+// Reduce the amount of source code to contextualize,
+// and the re-positionned caret in this smaller source code.
 //
-// For instance, `foo\nfoo.bar.baz`
-// will return `foo.bar.baz`.
+// For instance, `foo\nfoo.bar.baz|`
+// will return `['foo.bar.baz', {line:0, ch:11}]`.
 //
 // If we cannot get an identifier, returns `null`.
 //
@@ -410,6 +411,12 @@ function isLineTerminator(ch) {
 
 // 7.8.4 String Literals
 
+// This Esprima algorithm was heavily modified for my purposes.
+//
+// It returns the following object:
+// - index: of the character after the end.
+// - line: line number at the end of the string.
+// - column: column number of the character after the end.
 function skipStringLiteral(source, index, lineNumber, column) {
     var quote, ch, code, restore;
     var length = source.length;
@@ -507,6 +514,11 @@ function isHexDigit(ch) {
 // The following function is not from Esprima.
 // The index must be positioned in the source on a slash
 // that starts a multiline comment.
+//
+// It returns the following object:
+// - index: of the character after the end.
+// - line: line number at the end of the comment.
+// - column: column number of the character after the end.
 function skipMultilineComment(source, index, line, targetLine, column) {
   var ch = 47;
   while (index < source.length) {
