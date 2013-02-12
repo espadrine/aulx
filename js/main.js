@@ -37,6 +37,12 @@ function jsCompleter(source, caret, options) {
   options = options || {};
   var completion = new Completion();
 
+  // Caching the result of a static analysis for perf purposes.
+  // Only do this (possibly expensive) operation when required.
+  if (staticCandidates == null || options.fireStaticAnalysis) {
+    updateStaticCache(source, caret, options.parser);
+  }
+
   // We use a primitive sorting algorithm.
   // The candidates are simply concatenated, level after level.
   // We assume that Level 0 < Level 1 < etc.
@@ -52,11 +58,6 @@ function jsCompleter(source, caret, options) {
 
   // Static analysis (Level 2).
 
-  // Only do this (possibly expensive) operation once every new line.
-  if (staticCandidates == null || options.fireStaticAnalysis) {
-    staticCandidates = getStaticScope(source, caret, {parser:options.parser})
-        || staticCandidates;   // If it fails, use the previous version.
-  }
   var staticCompletion = new Completion();
   // Right now, we can only complete variables.
   if ((context.completing === Completing.identifier ||
@@ -111,6 +112,19 @@ function jsCompleter(source, caret, options) {
 }
 
 exports.js = jsCompleter;
+
+
+
+// Cache in use for static analysis.
+var staticCandidates;   // We keep the previous candidates around.
+
+function updateStaticCache(source, caret, parser) {
+  staticCandidates = getStaticScope(source, caret, {parser:parser})
+      || staticCandidates;   // If it fails, use the previous version.
+}
+
+exports.updateStaticCache = updateStaticCache;
+
 
 
 

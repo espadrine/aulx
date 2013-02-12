@@ -88,20 +88,13 @@ Autocompletion.prototype = {
   // variable is used to avoid race conditions.
   _insertingText: 0,
   _completion: null,
-  // Static analysis would better be cached.
-  _staticCandidates: null,
-  // If this switch is on, we will run the static analysis next time we trigger
-  // autocompletion.
-  _fireStaticAnalysis: true,
   _line: 0,
 
   _delayedPopup: null,
 
   runCompleters: function AC_runCompleters() {
     this._completion = Aulx.js(this.editor.getValue(), this.editor.getCursor(),
-        {fireStaticAnalysis: this._fireStaticAnalysis,
-         global: global});
-    //this._fireStaticAnalysis = false;
+        {global: global});
   },
 
   // Show the completions that are asked for.
@@ -228,7 +221,7 @@ Autocompletion.prototype = {
     // If the line changed, the static analysis is worth updating.
     var lineno = aEditor.getCursor().line;
     if (this._line !== lineno) {
-      this._fireStaticAnalysis = true;
+      Aulx.updateStaticCache(this.editor.getValue(), this.editor.getCursor());
       this._line = lineno;
       this.stop();
     }

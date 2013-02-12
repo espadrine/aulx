@@ -1,8 +1,6 @@
 // Static analysis helper functions.
 //
 
-var staticCandidates;   // We keep the previous candidates around.
-
 
 //
 // Get all the variables in a JS script at a certain position.
