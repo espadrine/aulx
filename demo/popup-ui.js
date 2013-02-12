@@ -221,7 +221,7 @@ Autocompletion.prototype = {
     // If the line changed, the static analysis is worth updating.
     var lineno = aEditor.getCursor().line;
     if (this._line !== lineno) {
-      Aulx.updateStaticCache(this.editor.getValue(), this.editor.getCursor());
+      Aulx.js.updateStaticCache(this.editor.getValue(), this.editor.getCursor());
       this._line = lineno;
       this.stop();
     }

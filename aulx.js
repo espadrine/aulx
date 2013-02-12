@@ -243,7 +243,7 @@ function updateStaticCache(source, caret, parser) {
       || staticCandidates;   // If it fails, use the previous version.
 }
 
-exports.updateStaticCache = updateStaticCache;
+jsCompleter.updateStaticCache = updateStaticCache;
 
 
 
