@@ -50,6 +50,12 @@ t.eq(jsCompleter.getContext(source, caret),
        data: ['baz'] },
      "getContext deals with multiple line strings.");
 
+source = 'var foo "bar\\\n bar';
+caret = {line:1, ch:4};
+t.eq(jsCompleter.getContext(source, caret),
+     undefined,
+     "getContext deals with untokenizable contexts.");
+
 // Testing sandbox.js
 
 source = 'foo.ba';
