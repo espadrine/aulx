@@ -96,6 +96,12 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"foobar", postfix:"bar", score:0}],
      "The JS completer works with static analysis.");
 
+source = 'foo.bar = 5; foo.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "The JS completer has static object analysis.");
+
 // Testing keyword completion
 
 source = 'vo';
