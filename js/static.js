@@ -21,7 +21,7 @@ function staticAnalysis(context) {
     // We don't use staticCandidates.weight at all here.
     var typeStore = staticCandidates.types;
     for (var i = 0; i < context.data.length - 1; i++) {
-      typeStore = typeStore.properties[context.data[i]];
+      typeStore = typeStore.properties.get(context.data[i]);
       if (!typeStore) { return; }
     }
     if (context.completing === Completing.identifier) {
@@ -35,7 +35,7 @@ function staticAnalysis(context) {
         }
       });
     } else if (context.completing === Completing.property) {
-      typeStore = typeStore.properties[context.data[i]];
+      typeStore = typeStore.properties.get(context.data[i]);
       typeStore.properties.forEach(function (store, display) {
         staticCompletion.insert(new Candidate(display, display, 0));
       });
@@ -250,11 +250,10 @@ var DateType        = 0x20 | 0;
 var RegExpType      = 0x40 | 0;
 
 // A type inference instance maps symbols to an object of the following form:
-// - properties: a type inference instance containing all sub-properties of the
-//   object and their own types.
+// - properties: a Map from symbols to TypeInferred.
 // - type: a number, the bitwise OR of the types it may have.
 function TypeInferred() {
-  this.properties = Object.create(null);
+  this.properties = new Map();
   this.type = 0|0;
 }
 
@@ -266,8 +265,8 @@ TypeInferred.prototype = {
     return (this.type & type) === type;
   },
   addProperty: function(symbol) {
-    if (!this.properties[symbol]) {
-      this.properties[symbol] = new TypeInferred();
+    if (!this.properties.has(symbol)) {
+      this.properties.set(symbol, new TypeInferred());
     }
   }
 };
@@ -277,10 +276,12 @@ TypeInferred.prototype = {
 function typeFromMember(store, node) {
   var symbols = [],
       symbol = '';
-  while (node.object.type !== "Identifier") {
+  while (node.object.type !== "Identifier" &&
+         node.object.type !== "ThisExpression") {
     symbols.push(node.property.name);
     node = node.object;
   }
+  // FIXME: use this.property assignment.
   symbols.push(node.property.name);
   symbols.push(node.object.name);  // At this point, node is an identifier.
 
@@ -288,6 +289,6 @@ function typeFromMember(store, node) {
   while (symbols.length > 0) {
     symbol = symbols.pop();
     store.addProperty(symbol);
-    store = store.properties[symbol];
+    store = store.properties.get(symbol);
   }
 }
