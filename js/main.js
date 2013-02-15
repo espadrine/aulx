@@ -58,22 +58,10 @@ function jsCompleter(source, caret, options) {
 
   // Static analysis (Level 2).
 
-  var staticCompletion = new Completion();
-  // Right now, we can only complete variables.
-  if ((context.completing === Completing.identifier ||
-       context.completing === Completing.property) &&
-      context.data.length === 1 && staticCandidates != null) {
-    var varName = context.data[0];
-    staticCandidates.forEach(function (weight, display) {
-      // They have a positive score.
-      if (display.indexOf(varName) == 0
-          && display.length > varName.length) {
-        // The candidate must match and have something to add!
-        staticCompletion.insert(new Candidate(display,
-            display.slice(varName.length), weight));
-      }
-    });
-    completion.meld(staticCompletion);
+  if (staticCandidates != null) {
+    // They have a non-negative score.
+    var staticCompletion = staticAnalysis(context);
+    if (!!staticCompletion) { completion.meld(staticCompletion); }
   }
 
   // Sandbox-based candidates (Level 1).
@@ -81,9 +69,7 @@ function jsCompleter(source, caret, options) {
   if (options.global !== undefined) {
     // They have a score of -1.
     var sandboxCompletion = identifierLookup(options.global, context);
-    if (sandboxCompletion) {
-      completion.meld(sandboxCompletion);
-    }
+    if (!!sandboxCompletion) { completion.meld(sandboxCompletion); }
   }
 
   // Keyword-based candidates (Level 0).

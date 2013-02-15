@@ -178,22 +178,10 @@ function jsCompleter(source, caret, options) {
 
   // Static analysis (Level 2).
 
-  var staticCompletion = new Completion();
-  // Right now, we can only complete variables.
-  if ((context.completing === Completing.identifier ||
-       context.completing === Completing.property) &&
-      context.data.length === 1 && staticCandidates != null) {
-    var varName = context.data[0];
-    staticCandidates.forEach(function (weight, display) {
-      // They have a positive score.
-      if (display.indexOf(varName) == 0
-          && display.length > varName.length) {
-        // The candidate must match and have something to add!
-        staticCompletion.insert(new Candidate(display,
-            display.slice(varName.length), weight));
-      }
-    });
-    completion.meld(staticCompletion);
+  if (staticCandidates != null) {
+    // They have a non-negative score.
+    var staticCompletion = staticAnalysis(context);
+    if (!!staticCompletion) { completion.meld(staticCompletion); }
   }
 
   // Sandbox-based candidates (Level 1).
@@ -201,9 +189,7 @@ function jsCompleter(source, caret, options) {
   if (options.global !== undefined) {
     // They have a score of -1.
     var sandboxCompletion = identifierLookup(options.global, context);
-    if (sandboxCompletion) {
-      completion.meld(sandboxCompletion);
-    }
+    if (!!sandboxCompletion) { completion.meld(sandboxCompletion); }
   }
 
   // Keyword-based candidates (Level 0).
@@ -684,6 +670,53 @@ function skipMultilineComment(source, index, line, targetLine, column) {
     column: column
   };
 }
+// Return a Completion instance, or undefined.
+function staticAnalysis(context) {
+  var staticCompletion = new Completion();
+  // Right now, we can only complete variables.
+  if (context.completing === Completing.identifier &&
+      context.data.length === 1) {
+    var varName = context.data[0];
+    // They have a positive score.
+    staticCandidates.weights.forEach(function (weight, display) {
+      if (display.indexOf(varName) == 0
+          && display.length > varName.length) {
+        // The candidate must match and have something to add!
+        staticCompletion.insert(new Candidate(display,
+            display.slice(varName.length), weight));
+      }
+    });
+
+  } else if (context.completing === Completing.identifier ||
+             context.completing === Completing.property) {
+    // They have a zero score.
+    // We don't use staticCandidates.weight at all here.
+    var typeStore = staticCandidates.types;
+    for (var i = 0; i < context.data.length - 1; i++) {
+      typeStore = typeStore.properties[context.data[i]];
+      if (!typeStore) { return; }
+    }
+    if (context.completing === Completing.identifier) {
+      var varName = context.data[i];
+      typeStore.properties.forEach(function (store, display) {
+        if (display.indexOf(varName) == 0
+            && display.length > varName.length) {
+          // The candidate must match and have something to add!
+          staticCompletion.insert(new Candidate(display,
+              display.slice(varName.length), 0));
+        }
+      });
+    } else if (context.completing === Completing.property) {
+      typeStore = typeStore.properties[context.data[i]];
+      typeStore.properties.forEach(function (store, display) {
+        staticCompletion.insert(new Candidate(display, display, 0));
+      });
+    }
+  }
+  return staticCompletion;
+}
+
+
 // Static analysis helper functions.
 //
 
@@ -713,6 +746,7 @@ function getStaticScope(source, caret, options) {
   options = options || {};
   options.store = options.store || new Map();
   options.parse = options.parse || esprima.parse;
+  var typeStore = new TypeInferred();   // Represents the global object.
 
   var tree;
   try {
@@ -745,6 +779,9 @@ function getStaticScope(source, caret, options) {
           subnode = subnode.expression;  // Parenthesized expression.
         }
         if (subnode.type == "AssignmentExpression") {
+          if (subnode.left.type === "MemberExpression") {
+            typeFromMember(typeStore, subnode.left);
+          }
           subnode = subnode.right;       // f.g = function(){…};
         }
         if (subnode.type == "Property") {
@@ -782,7 +819,7 @@ function getStaticScope(source, caret, options) {
     }
   } while (stack.length > 0 || (node && index < node.length) || !!deeper);
 
-  return options.store;
+  return {weights: options.store, types: typeStore};
 }
 
 //
@@ -870,6 +907,62 @@ function argumentNames(node, store, weight) {
   }
 }
 
+
+
+//
+// Type inference.
+
+// Types. FIXME: use them.
+var FunctionType    = 0x01 | 0;
+var ArrayType       = 0x02 | 0;
+var StringType      = 0x04 | 0;
+var BooleanType     = 0x08 | 0;
+var NumberType      = 0x10 | 0;
+var DateType        = 0x20 | 0;
+var RegExpType      = 0x40 | 0;
+
+// A type inference instance maps symbols to an object of the following form:
+// - properties: a type inference instance containing all sub-properties of the
+//   object and their own types.
+// - type: a number, the bitwise OR of the types it may have.
+function TypeInferred() {
+  this.properties = Object.create(null);
+  this.type = 0|0;
+}
+
+TypeInferred.prototype = {
+  addType: function(type) {
+    this.type |= type;
+  },
+  isType: function(type) {
+    return (this.type & type) === type;
+  },
+  addProperty: function(symbol) {
+    if (!this.properties[symbol]) {
+      this.properties[symbol] = new TypeInferred();
+    }
+  }
+};
+
+// Store is a TypeInferred instance,
+// node is a MemberExpression.
+function typeFromMember(store, node) {
+  var symbols = [],
+      symbol = '';
+  while (node.object.type !== "Identifier") {
+    symbols.push(node.property.name);
+    node = node.object;
+  }
+  symbols.push(node.property.name);
+  symbols.push(node.object.name);  // At this point, node is an identifier.
+
+  // Now that we have the symbols, put them in the store.
+  while (symbols.length > 0) {
+    symbol = symbols.pop();
+    store.addProperty(symbol);
+    store = store.properties[symbol];
+  }
+}
 // Sandbox-based analysis.
 //
 
