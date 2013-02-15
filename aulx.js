@@ -38,6 +38,7 @@ exports = completer;
 //
 // Note: may fail in case you unexpectedly use __proto__ as a key.
 
+// FIXME: use ES6 maps when available.
 function Map() {
   // Cut off the inheritance tree.
   this.map = Object.create(null);
@@ -708,6 +709,7 @@ function staticAnalysis(context) {
       });
     } else if (context.completing === Completing.property) {
       typeStore = typeStore.properties.get(context.data[i]);
+      if (!typeStore) { return; }
       typeStore.properties.forEach(function (store, display) {
         staticCompletion.insert(new Candidate(display, display, 0));
       });
