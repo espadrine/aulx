@@ -24,37 +24,41 @@ exports = completer;
 //
 // Note: may fail in case you unexpectedly use __proto__ as a key.
 
-function Map() {
-  // Cut off the inheritance tree.
-  this.map = Object.create(null);
-}
-
-Map.prototype = {
-  get: function(key) {
-    return this.map[key];
-  },
-  has: function(key) {
-    return this.map[key] !== undefined;
-  },
-  set: function(key, value) {
-    this.map[key] = value;
-  },
-  delete: function(key) {
-    if (this.has(key)) {
-      delete this.map[key];
-      return true;
-    } else {
-      return false;
-    }
-  },
-  forEach: function(callbackfn, thisArg) {
-    callbackfn = callbackfn.bind(thisArg);
-    for (var i in this.map) {
-      callbackfn(this.map[i], i, this);
-    }
+// Firefox landed Maps without forEach, hence the odd check for that.
+if (!(this.Map && this.Map.prototype.forEach)) {
+  function Map() {
+    // Cut off the inheritance tree.
+    this.map = Object.create(null);
   }
-};
 
+  Map.prototype = {
+    get: function(key) {
+      return this.map[key];
+    },
+    has: function(key) {
+      return this.map[key] !== undefined;
+    },
+    set: function(key, value) {
+      this.map[key] = value;
+    },
+    delete: function(key) {
+      if (this.has(key)) {
+        delete this.map[key];
+        return true;
+      } else {
+        return false;
+      }
+    },
+    forEach: function(callbackfn, thisArg) {
+      callbackfn = callbackfn.bind(thisArg);
+      for (var i in this.map) {
+        callbackfn(this.map[i], i, this);
+      }
+    }
+  };
+
+  this.Map = Map;
+}
 
 
 
