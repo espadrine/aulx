@@ -25,11 +25,12 @@ exports = completer;
 // Note: may fail in case you unexpectedly use __proto__ as a key.
 
 // Firefox landed Maps without forEach, hence the odd check for that.
-if (!(this.Map && this.Map.prototype.forEach)) {
-  function Map() {
+var Map = this.Map;
+if (!(Map && Map.prototype.forEach)) {
+  var Map = function Map() {
     // Cut off the inheritance tree.
     this.map = Object.create(null);
-  }
+  };
 
   Map.prototype = {
     get: function(key) {
@@ -56,8 +57,6 @@ if (!(this.Map && this.Map.prototype.forEach)) {
       }
     }
   };
-
-  this.Map = Map;
 }
 
 
