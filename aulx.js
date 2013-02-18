@@ -1000,6 +1000,7 @@ function identifierLookup(global, context) {
       } else {
         // We need to go deeper. One property deeper.
         value = value[context.data[i]];
+        if (value == null) { break; }
       }
     }
     if (value != null) {
@@ -1019,6 +1020,7 @@ function identifierLookup(global, context) {
       } else {
         // We need to go deeper. One property deeper.
         value = value[context.data[i]];
+        if (value == null) { break; }
       }
     }
   } else if (context.completing === Completing.string) {
