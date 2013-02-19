@@ -19,10 +19,13 @@
 //    * contextFrom: Part of the source necessary to get the context.
 //      May be a string of the current line (which the editor may provide
 //      more efficiently than the default way).
+//      Use this if you know that reduceContext() is too slow for you.
 //    * global: global object. Can be used to perform level 1 (see above).
-//    * parser: a JS parser that is compatible with
+//    * parse: a JS parser that is compatible with
 //      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
-//    * tokenizer: a JS tokenizer that is compatible with Esprima.
+//    * parserContinuation: boolean. If true, the parser has a callback argument
+//      which is called with the AST.
+//    * tokenize: a JS tokenizer that is compatible with Esprima.
 //    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
 //      analysis. Recommendation: run it at every change of line.
 //
@@ -40,7 +43,9 @@ function jsCompleter(source, caret, options) {
   // Caching the result of a static analysis for perf purposes.
   // Only do this (possibly expensive) operation when required.
   if (staticCandidates == null || options.fireStaticAnalysis) {
-    updateStaticCache(source, caret, options.parser);
+    updateStaticCache(source, caret,
+        { parse: options.parse,
+          parserContinuation: options.parserContinuation });
   }
 
   // We use a primitive sorting algorithm.
@@ -98,19 +103,6 @@ function jsCompleter(source, caret, options) {
 }
 
 exports.js = jsCompleter;
-
-
-
-// Cache in use for static analysis.
-var staticCandidates;   // We keep the previous candidates around.
-
-function updateStaticCache(source, caret, parser) {
-  staticCandidates = getStaticScope(source, caret, {parser:parser})
-      || staticCandidates;   // If it fails, use the previous version.
-}
-
-jsCompleter.updateStaticCache = updateStaticCache;
-
 
 
 

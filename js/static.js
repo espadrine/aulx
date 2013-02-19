@@ -49,15 +49,21 @@ function staticAnalysis(context) {
 // Static analysis helper functions.
 //
 
+// Cache in use for static analysis.
+var staticCandidates;   // We keep the previous candidates around.
+
+
 
 //
 // Get all the variables in a JS script at a certain position.
 // This gathers variable (and argument) names by means of a static analysis
 // which it performs on a parse tree of the code.
 //
-// Returns a map from all variable names to a number reflecting how deeply
-// nested in the scope the variable was. A bigger number reflects a more
-// deeply nested variable.
+// Returns a list of two elements:
+// - a Map from all variable names to a number reflecting how deeply
+//   nested in the scope the variable was. A bigger number reflects a more
+//   deeply nested variable.
+// - a TypeInferred object.
 // We return null if we could not parse the code.
 //
 // This static scope system is inflexible. If it can't parse the code, it won't
@@ -68,19 +74,34 @@ function staticAnalysis(context) {
 // - caret: {line:0, ch:0} The line and column in the script from which we want the scope.
 // - options:
 //   * store: The object we return. Use to avoid allocation.
-//   * parser: A JS parser that conforms to
+//   * parse: A JS parser that conforms to
 //     https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
+//   * parserContinuation: A boolean. If true, the parser has a callback
+//     argument that sends the AST.
 //
-function getStaticScope(source, caret, options) {
+function updateStaticCache(source, caret, options) {
   options = options || {};
   options.store = options.store || new Map();
   options.parse = options.parse || esprima.parse;
-  var typeStore = new TypeInferred();   // Represents the global object.
 
-  var tree;
   try {
-    tree = options.parse(source, {loc:true});
+    if (!!options.parserContinuation) {
+      options.parse(source, {loc:true}, function(tree) {
+        staticCandidates = getStaticScope(tree, caret, options)
+            || staticCandidates;   // If it fails, use the previous version.
+      });
+    } else {
+      var tree = options.parse(source, {loc:true});
+      staticCandidates = getStaticScope(tree, caret, options)
+          || staticCandidates;   // If it fails, use the previous version.
+    }
   } catch (e) { return null; }
+}
+
+jsCompleter.updateStaticCache = updateStaticCache;
+
+function getStaticScope(tree, caret, options) {
+  var typeStore = new TypeInferred();   // Represents the global object.
 
   var node = tree.body;
   var stack = [];
