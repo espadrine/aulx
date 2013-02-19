@@ -22,6 +22,12 @@ function bundle(file, inputs) {
   }(0));
 }
 
+// Web workers for static analysis.
+bundle('demo/parser-worker.js', [
+  'node_modules/esprima/esprima.js',
+  'js/worker-parser.js',
+]);
+
 // Target environment: AMD / Node.js / plain old browsers.
 //
 bundle('aulx.js', [

@@ -87,4 +87,5 @@ console.log('fib(10) = ' + fibonacci.at(10));
 <script>
 var cmeditor = CodeMirror.fromTextArea(editor);
 var acUI = new Autocompletion(cmeditor);
+var parserWorker = new Worker('parser-worker.js');
 </script>

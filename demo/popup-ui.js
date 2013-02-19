@@ -17,6 +17,17 @@ function createPopover(aDocument, aCssClass) {
   return popover;
 }
 
+
+// Wrapper around the parser (which is located inside a worker).
+// We don't actually use options,
+// but we know to set loc to true inside the worker.
+function parseCont(source, options, cb) {
+  parserWorker.onmessage = function parserWorkerMessageListener(event) {
+    cb(event.data);
+  };
+  parserWorker.postMessage(source);
+}
+
 var NUM_VISIBLE_COMPLETIONS = 10;
 var DELAYED_POPUP = 0;
 
@@ -221,7 +232,8 @@ Autocompletion.prototype = {
     // If the line changed, the static analysis is worth updating.
     var lineno = aEditor.getCursor().line;
     if (this._line !== lineno) {
-      Aulx.js.updateStaticCache(this.editor.getValue(), this.editor.getCursor());
+      Aulx.js.updateStaticCache(this.editor.getValue(), this.editor.getCursor(),
+          {parse: parseCont, parserContinuation: true});
       this._line = lineno;
       this.stop();
     }
