@@ -768,17 +768,18 @@ function updateStaticCache(source, caret, options) {
 jsCompleter.updateStaticCache = updateStaticCache;
 
 function getStaticScope(tree, caret, options) {
-  var typeStore = new TypeInferred();   // Represents the global object.
+  var typeStore, node, subnode, stack, index, indices, deeper, symbols;
+  typeStore = new TypeInferred();   // Represents the global object.
 
-  var node = tree.body;
-  var stack = [];
-  var index = 0;
-  var indices = [];
-  var deeper = null;
+  node = tree.body;
+  stack = [];
+  index = 0;
+  indices = [];
+  deeper = null;
   do {
     deeper = null;
     for (; index < node.length; index++) {
-      var subnode = node[index];
+      subnode = node[index];
       while (["ReturnStatement", "VariableDeclarator", "ExpressionStatement",
               "AssignmentExpression", "Property"].indexOf(subnode.type) >= 0) {
         if (subnode.type == "ReturnStatement") {
@@ -797,7 +798,10 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.type == "AssignmentExpression") {
           if (subnode.left.type === "MemberExpression") {
-            typeFromMember(typeStore, subnode.left);
+            symbols = typeFromMember(typeStore, subnode.left);
+          }
+          if (subnode.right.type === "ObjectExpression") {
+            typeFromObject(typeStore, symbols, subnode.right);
           }
           subnode = subnode.right;       // f.g = function(){…};
         }
@@ -963,22 +967,39 @@ TypeInferred.prototype = {
 // Store is a TypeInferred instance,
 // node is a MemberExpression.
 function typeFromMember(store, node) {
-  var symbols = [],
-      symbol = '';
+  var symbols, symbol, i;
+  symbols = [];
+  symbol = '';
   while (node.object.type !== "Identifier" &&
          node.object.type !== "ThisExpression") {
     symbols.push(node.property.name);
     node = node.object;
   }
-  // FIXME: use this.property assignment.
+  // FIXME: use `this.property` assignment.
   symbols.push(node.property.name);
   symbols.push(node.object.name);  // At this point, node is an identifier.
 
   // Now that we have the symbols, put them in the store.
-  while (symbols.length > 0) {
-    symbol = symbols.pop();
+  symbols.reverse();
+  for (i = 0; i < symbols.length; i++) {
+    symbol = symbols[i];
     store.addProperty(symbol);
     store = store.properties.get(symbol);
+  }
+  return symbols;
+}
+
+function typeFromObject(store, symbols, node) {
+  var property, i, substore;
+  substore = store;
+  // Find the substore insertion point.
+  for (i = 0; i < symbols.length; i++) {
+    substore = substore.properties.get(symbols[i]);
+  }
+  // Add the symbols.
+  for (i = 0; i < node.properties.length; i++) {
+    property = node.properties[i];
+    substore.addProperty(property.key.name);
   }
 }
 // Sandbox-based analysis.
