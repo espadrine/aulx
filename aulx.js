@@ -788,6 +788,7 @@ function getStaticScope(tree, caret, options) {
         if (subnode.type == "VariableDeclarator") {
           // Variable names go one level too deep.
           options.store.set(subnode.id.name, stack.length - 1);
+          typeStore.addProperty(subnode.id.name);
           if (subnode.init && subnode.init.type === "ObjectExpression") {
             typeFromObject(typeStore, [subnode.id.name], subnode.init);
           }
