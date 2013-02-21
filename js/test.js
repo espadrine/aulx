@@ -100,13 +100,20 @@ source = 'foo.bar = 5; foo.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
-     "The JS completer has static object analysis.");
+     "The JS completer has static object analysis in property assignments.");
 
 source = 'foo.bar = {baz:5}; foo.bar.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"baz", postfix:"az", score:0}],
-     "The JS completer has static object literal analysis.");
+     "The JS completer has static object literal analysis " +
+     "in object assignments.");
+
+source = 'var foo = {bar:5}; foo.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "The JS completer has static object analysis in definition.");
 
 
 // Testing keyword completion
