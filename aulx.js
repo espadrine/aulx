@@ -1021,7 +1021,7 @@ function typeFromObject(store, symbols, node) {
 //  - context: {completion: number, data: array}
 //    We assume completion to be either identifier or property.
 //    See ./main.js.
-function identifierLookup(global, context) {
+function identifierLookup(global, context, options) {
   var matchProp = '';
 
   var value = global;
@@ -1073,7 +1073,14 @@ function identifierLookup(global, context) {
   if (value != null) {
     var matchedProps = getMatchedProps(value, { matchProp: matchProp });
     for (var prop in matchedProps) {
-      completion.insert(new Candidate(prop, prop.slice(matchProp.length), -1));
+      // It needs to be a valid property: this is dot completion.
+      try {
+        if (esprima.tokenize(prop)[0].type === "Identifier") {
+          completion.insert(new Candidate(prop, prop.slice(matchProp.length), -1));
+        }
+      } catch (e) {
+        // Definitely not a valid property.
+      }
     }
   }
   return completion;
