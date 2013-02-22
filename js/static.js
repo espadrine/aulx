@@ -336,6 +336,8 @@ function typeFromObject(store, symbols, node) {
   // Add the symbols.
   for (i = 0; i < node.properties.length; i++) {
     property = node.properties[i];
-    substore.addProperty(property.key.name);
+    substore.addProperty(
+        property.key.name? property.key.name
+                         : property.key.value);
   }
 }

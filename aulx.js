@@ -439,7 +439,7 @@ function reduceContext(source, caret) {
 
     if (ch === 34 || ch === 39) {
       // Single / double quote: starts a string.
-      newSpot = skipStringLiteral(source, i, line, column);
+      newSpot = skipStringLiteral(source, i, iLT - 1, line, column);
       haveSkipped = true;
       changedLine = line < newSpot.line;
 
@@ -528,14 +528,22 @@ function isLineTerminator(ch) {
 
 // This Esprima algorithm was heavily modified for my purposes.
 //
+// Parameters:
+// - source: code
+// - index: position of the opening quote.
+// - indexAtStartOfLine: position of the first character of the current line,
+//   minus one.
+// - lineNumber: starting from 0.
+// - column: number.
+//
 // It returns the following object:
 // - index: of the character after the end.
 // - line: line number at the end of the string.
 // - column: column number of the character after the end.
-function skipStringLiteral(source, index, lineNumber, column) {
+function skipStringLiteral(source, index, indexAtStartOfLine,
+      lineNumber, column) {
     var quote, ch, code, restore;
     var length = source.length;
-    var indexAtStartOfLine = index - 1;
 
     quote = source[index];
     ++index;
@@ -1003,7 +1011,9 @@ function typeFromObject(store, symbols, node) {
   // Add the symbols.
   for (i = 0; i < node.properties.length; i++) {
     property = node.properties[i];
-    substore.addProperty(property.key.name);
+    substore.addProperty(
+        property.key.name? property.key.name
+                         : property.key.value);
   }
 }
 // Sandbox-based analysis.
