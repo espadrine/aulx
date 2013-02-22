@@ -1019,13 +1019,12 @@ parseStatement: true, parseSourceElement: true */
                 lineStart: lineStart,
                 range: [start, index]
             };
-        } else {
-            return {
-                literal: str,
-                value: value,
-                range: [start, index]
-            };
         }
+        return {
+            literal: str,
+            value: value,
+            range: [start, index]
+        };
     }
 
     function isIdentifierName(token) {
@@ -1044,30 +1043,37 @@ parseStatement: true, parseSourceElement: true */
         if (!prevToken) {
             // Nothing before that: it cannot be a division.
             return scanRegExp();
-        } else if (prevToken.type === "Punctuator") {
+        }
+        if (prevToken.type === "Punctuator") {
             if (prevToken.value === ")") {
                 checkToken = extra.tokens[extra.openParenToken - 1];
                 if (checkToken &&
-                    checkToken.type === "Keyword" &&
-                    (checkToken.value === "if" ||
-                     checkToken.value === "while" ||
-                     checkToken.value === "for" ||
-                     checkToken.value === "with")) {
+                        checkToken.type === "Keyword" &&
+                        (checkToken.value === "if" ||
+                         checkToken.value === "while" ||
+                         checkToken.value === "for" ||
+                         checkToken.value === "with")) {
                     return scanRegExp();
                 }
                 return scanPunctuator();
-            } else if (prevToken.value === "}") {
+            }
+            if (prevToken.value === "}") {
                 // Dividing a function by anything makes little sense,
                 // but we have to check for that.
-                if (extra.openCurlyToken < 0) {
-                    return scanPunctuator();
-                }
                 if (extra.tokens[extra.openCurlyToken - 3] &&
-                    extra.tokens[extra.openCurlyToken - 3].type === "Keyword") {
+                        extra.tokens[extra.openCurlyToken - 3].type === "Keyword") {
+                    // Anonymous function.
                     checkToken = extra.tokens[extra.openCurlyToken - 4];
+                    if (!checkToken) {
+                        return scanPunctuator();
+                    }
                 } else if (extra.tokens[extra.openCurlyToken - 4] &&
-                    extra.tokens[extra.openCurlyToken - 4].type === "Keyword") {
+                        extra.tokens[extra.openCurlyToken - 4].type === "Keyword") {
+                    // Named function.
                     checkToken = extra.tokens[extra.openCurlyToken - 5];
+                    if (!checkToken) {
+                        return scanRegExp();
+                    }
                 } else {
                     return scanPunctuator();
                 }
@@ -1076,17 +1082,14 @@ parseStatement: true, parseSourceElement: true */
                 if (FnExprTokens.indexOf(checkToken.value) >= 0) {
                     // It is an expression.
                     return scanPunctuator();
-                } else {
-                    // It is a declaration.
-                    return scanRegExp();
                 }
-            } else {
+                // It is a declaration.
                 return scanRegExp();
             }
-        } else if (prevToken.type === "Keyword") {
             return scanRegExp();
-        } else {
-            return scanPunctuator();
+        }
+        if (prevToken.type === "Keyword") {
+            return scanRegExp();
         }
         return scanPunctuator();
     }
@@ -1127,6 +1130,7 @@ parseStatement: true, parseSourceElement: true */
             if (isDecimalDigit(source.charCodeAt(index + 1))) {
                 return scanNumericLiteral();
             }
+            return scanPunctuator();
         }
 
         if (isDecimalDigit(ch)) {
@@ -3402,7 +3406,7 @@ parseStatement: true, parseSourceElement: true */
             column: index - lineStart
         };
 
-        if (!tokenize) {
+        if (!extra.tokenize) {
             // Pop the previous token, which is likely '/' or '/='
             if (extra.tokens.length > 0) {
                 token = extra.tokens[extra.tokens.length - 1];
@@ -3817,7 +3821,9 @@ parseStatement: true, parseSourceElement: true */
     }
 
     function tokenize(code, options) {
-        var toString;
+        var toString,
+            token,
+            tokens;
 
         toString = String;
         if (typeof code !== 'string' && !(code instanceof String)) {
@@ -3875,8 +3881,6 @@ parseStatement: true, parseSourceElement: true */
 
         patch();
 
-        var token;
-        var tokens;
         try {
             peek();
             if (lookahead.type === Token.EOF) {
@@ -3887,18 +3891,32 @@ parseStatement: true, parseSourceElement: true */
             while (lookahead.type !== Token.EOF) {
                 try {
                     token = lex();
-                } catch (e) {
+                } catch (lexError) {
                     token = lookahead;
-                    break;
+                    if (extra.errors) {
+                        extra.errors.push(lexError);
+                        // We have to break on the first error
+                        // to avoid infinite loops.
+                        break;
+                    } else {
+                        throw lexError;
+                    }
                 }
             }
 
             filterTokenLocation();
+            tokens = extra.tokens;
+            if (typeof extra.comments !== 'undefined') {
+                filterCommentLocation();
+                tokens.comments = extra.comments;
+            }
+            if (typeof extra.errors !== 'undefined') {
+                tokens.errors = extra.errors;
+            }
         } catch (e) {
             throw e;
         } finally {
             unpatch();
-            tokens = extra.tokens;
             extra = {};
         }
         return tokens;
