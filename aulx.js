@@ -990,9 +990,12 @@ function typeFromMember(store, node) {
     symbols.push(node.property.name);
     node = node.object;
   }
-  // FIXME: use `this.property` assignment.
   symbols.push(node.property.name);
-  symbols.push(node.object.name);  // At this point, node is an identifier.
+  if (node.object.type !== "ThisExpression") {
+    symbols.push(node.object.name);  // At this point, node is an identifier.
+  } else {
+    symbols.push("this");
+  }
 
   // Now that we have the symbols, put them in the store.
   symbols.reverse();
