@@ -203,7 +203,8 @@ function contextFromToken(tokens, tokIndex, caret) {
   if (!token) { return; }
   if (token.type === "Punctuator" && token.value === '.') {
     if (prevToken) {
-      if (prevToken.type === "Identifier") {
+      if (prevToken.type === "Identifier" ||
+         (prevToken.type === "Keyword" && prevToken.value === "this")) {
         // Property completion.
         return {
           completing: Completing.property,
@@ -250,8 +251,10 @@ function suckIdentifier(tokens, tokIndex, caret) {
   // We now know there is something to suck into identifier.
   var identifier = [];
   while (token.type === "Identifier" ||
-         (token.type === "Punctuator" && token.value === '.')) {
-    if (token.type === "Identifier") {
+         (token.type === "Punctuator" && token.value === '.') ||
+         (token.type === "Keyword" && token.value === "this")) {
+    if (token.type === "Identifier" ||
+        token.type === "Keyword") {
       var endCh = token.loc.end.column;
       var tokValue;
       if (caret.ch < endCh) {

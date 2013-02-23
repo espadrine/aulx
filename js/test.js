@@ -56,6 +56,13 @@ t.eq(jsCompleter.getContext(source, caret),
      undefined,
      "getContext deals with untokenizable contexts.");
 
+source = 'this.foo';
+caret = {line:0, ch:8};
+t.eq(jsCompleter.getContext(source, caret),
+     { completing: jsCompleter.Completing.identifier,
+       data: ['this', 'foo'] },
+     "getContext deals with `this`.");
+
 // Testing sandbox.js
 
 source = 'foo.ba';
