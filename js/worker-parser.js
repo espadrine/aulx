@@ -1,3 +1,5 @@
 onmessage = function(event) {
-  postMessage(esprima.parse(event.data, {loc: true}));
+  try {
+    postMessage(esprima.parse(event.data, {loc: true}));
+  } catch (e) {}
 };

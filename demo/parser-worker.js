@@ -4039,5 +4039,7 @@ parseStatement: true, parseSourceElement: true */
 }));
 /* vim: set sw=4 ts=4 et tw=80 : */
 onmessage = function(event) {
-  postMessage(esprima.parse(event.data, {loc: true}));
+  try {
+    postMessage(esprima.parse(event.data, {loc: true}));
+  } catch (e) {}
 };

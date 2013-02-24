@@ -154,6 +154,7 @@ function getContext(source, caret, tokenize) {
   var token;
   while (lowIndex <= highIndex) {
     token = tokens[tokIndex];
+    if (!token) { return null; }
     // Note: The caret is on the first line (as a result of reduceContext).
     // Also, Esprima lines start with 1.
     if (token.loc.start.line > 1) {
