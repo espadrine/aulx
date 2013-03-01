@@ -134,6 +134,12 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
      "The JS completer has static object analysis even with strings.");
 
+source = 'F.prototype.bar = 0; var foo = new F(); foo.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "The static analysis goes through the prototype.");
+
 
 // Testing keyword completion
 
