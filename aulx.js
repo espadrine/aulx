@@ -1016,11 +1016,17 @@ function typeFromMember(store, node) {
 // Store is a TypeStore instance,
 // node is a ObjectExpression.
 function typeFromObject(store, symbols, node) {
-  var property, i, substore;
+  var property, i, substore, nextSubstore;
   substore = store;
   // Find the substore insertion point.
   for (i = 0; i < symbols.length; i++) {
-    substore = substore.properties.get(symbols[i]);
+    nextSubstore = substore.properties.get(symbols[i]);
+    if (!nextSubstore) {
+      // It really should exist.
+      substore.addProperty(symbols[i]);
+      nextSubstore = substore.properties.get(symbols[i]);
+    }
+    substore = nextSubstore;
   }
   // Add the symbols.
   for (i = 0; i < node.properties.length; i++) {
