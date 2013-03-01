@@ -680,45 +680,46 @@ function skipMultilineComment(source, index, line, targetLine, column) {
 // Return a Completion instance, or undefined.
 function staticAnalysis(context) {
   var staticCompletion = new Completion();
-  // Right now, we can only complete variables.
-  if (context.completing === Completing.identifier &&
-      context.data.length === 1) {
-    var varName = context.data[0];
-    // They have a positive score.
-    staticCandidates.weights.forEach(function (weight, display) {
-      if (display.indexOf(varName) == 0
-          && display.length > varName.length) {
-        // The candidate must match and have something to add!
-        staticCompletion.insert(new Candidate(display,
-            display.slice(varName.length), weight));
-      }
-    });
+  var completingIdentifier = (context.completing === Completing.identifier);
+  var completingProperty = (context.completing === Completing.property);
 
-  } else if (context.completing === Completing.identifier ||
-             context.completing === Completing.property) {
-    // They have a zero score.
-    // We don't use staticCandidates.weight at all here.
-    var typeStore = staticCandidates.types;
-    for (var i = 0; i < context.data.length - 1; i++) {
-      typeStore = typeStore.properties.get(context.data[i]);
-      if (!typeStore) { return; }
+  var varName;   // Each will modify this to the start of the variable name.
+  var eachProperty = function eachProperty(store, display) {
+    if (display.indexOf(varName) == 0
+        && display.length > varName.length) {
+      // The candidate must match and have something to add!
+      staticCompletion.insert(new Candidate(display,
+          display.slice(varName.length), store.weight));
     }
-    if (context.completing === Completing.identifier) {
-      var varName = context.data[i];
-      typeStore.properties.forEach(function (store, display) {
-        if (display.indexOf(varName) == 0
-            && display.length > varName.length) {
-          // The candidate must match and have something to add!
-          staticCompletion.insert(new Candidate(display,
-              display.slice(varName.length), 0));
-        }
-      });
-    } else if (context.completing === Completing.property) {
-      typeStore = typeStore.properties.get(context.data[i]);
-      if (!typeStore) { return; }
-      typeStore.properties.forEach(function (store, display) {
-        staticCompletion.insert(new Candidate(display, display, 0));
-      });
+  };
+
+  if (completingIdentifier && context.data.length === 1) {
+    varName = context.data[0];
+    // They have a positive score.
+    staticCandidates.properties.forEach(eachProperty);
+
+  } else if (completingIdentifier || completingProperty) {
+    var store = staticCandidates;
+    for (var i = 0; i < context.data.length - 1; i++) {
+      store = store.properties.get(context.data[i]);
+      if (!store) { return; }
+    }
+
+    varName = context.data[i];
+    if (completingProperty) {
+      store = store.properties.get(varName);
+      if (!store) { return; }
+      varName = '';  // This will cause the indexOf check to succeed.
+    }
+    store.properties.forEach(eachProperty);
+
+    // Seek data from its type.
+    if (!!store.type) {
+      store = staticCandidates.properties.get(store.type);
+      if (!store) { return staticCompletion; }
+      store = store.properties.get('prototype');
+      if (!store) { return staticCompletion; }
+      store.properties.forEach(eachProperty);
     }
   }
   return staticCompletion;
@@ -738,11 +739,7 @@ var staticCandidates;   // We keep the previous candidates around.
 // This gathers variable (and argument) names by means of a static analysis
 // which it performs on a parse tree of the code.
 //
-// Returns a list of two elements:
-// - a Map from all variable names to a number reflecting how deeply
-//   nested in the scope the variable was. A bigger number reflects a more
-//   deeply nested variable.
-// - a TypeInferred object.
+// Returns a TypeStore object. See below.
 // We return null if we could not parse the code.
 //
 // This static scope system is inflexible. If it can't parse the code, it won't
@@ -750,9 +747,15 @@ var staticCandidates;   // We keep the previous candidates around.
 //
 // Parameters:
 // - source: The JS script to parse.
-// - caret: {line:0, ch:0} The line and column in the script from which we want the scope.
+// - caret: {line:0, ch:0} The line and column in the scrip
+//   from which we want the scope.
 // - options:
 //   * store: The object we return. Use to avoid allocation.
+//      It is a typeStore, that is, a map from symbol names (as strings) to:
+//      - weight: relevance of the symbol,
+//      - properties: a typeStore for its properties,
+//      - type: a string of the name of the constructor.
+//      - func: a string of the function it is the result of.
 //   * parse: A JS parser that conforms to
 //     https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 //   * parserContinuation: A boolean. If true, the parser has a callback
@@ -760,7 +763,7 @@ var staticCandidates;   // We keep the previous candidates around.
 //
 function updateStaticCache(source, caret, options) {
   options = options || {};
-  options.store = options.store || new Map();
+  options.store = options.store || new TypeStore();
   options.parse = options.parse || esprima.parse;
 
   try {
@@ -780,14 +783,14 @@ function updateStaticCache(source, caret, options) {
 jsCompleter.updateStaticCache = updateStaticCache;
 
 function getStaticScope(tree, caret, options) {
-  var typeStore, node, subnode, stack, index, indices, deeper, symbols;
-  typeStore = new TypeInferred();   // Represents the global object.
+  var subnode, symbols;
+  var store = options.store;
 
-  node = tree.body;
-  stack = [];
-  index = 0;
-  indices = [];
-  deeper = null;
+  var node = tree.body;
+  var stack = [];
+  var index = 0;
+  var indices = [];
+  var deeper = null;
   do {
     deeper = null;
     for (; index < node.length; index++) {
@@ -799,10 +802,16 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.type == "VariableDeclarator") {
           // Variable names go one level too deep.
-          options.store.set(subnode.id.name, stack.length - 1);
-          typeStore.addProperty(subnode.id.name);
-          if (subnode.init && subnode.init.type === "ObjectExpression") {
-            typeFromObject(typeStore, [subnode.id.name], subnode.init);
+          if (subnode.init && subnode.init.type === "NewExpression") {
+            store.addProperty(subnode.id.name, subnode.init.callee.name,
+                stack.length - 1);
+            // FIXME: add built-in types detection.
+          } else if (subnode.init && subnode.init.type === "ObjectExpression") {
+            typeFromObject(store, [subnode.id.name], subnode.init);
+            store.properties.get(subnode.id.name).weight = stack.length - 1;
+          } else {
+            // Simple object.
+            store.addProperty(subnode.id.name, null, stack.length - 1);
           }
           if (!!subnode.init) {
             subnode = subnode.init;
@@ -814,10 +823,10 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.type == "AssignmentExpression") {
           if (subnode.left.type === "MemberExpression") {
-            symbols = typeFromMember(typeStore, subnode.left);
+            symbols = typeFromMember(store, subnode.left);
           }
           if (subnode.right.type === "ObjectExpression") {
-            typeFromObject(typeStore, symbols, subnode.right);
+            typeFromObject(store, symbols, subnode.right);
           }
           subnode = subnode.right;       // f.g = function(){…};
         }
@@ -833,11 +842,11 @@ function getStaticScope(tree, caret, options) {
           subnode = subnode.callee;
         }
         if (subnode.id) {
-          options.store.set(subnode.id.name, stack.length);
+          store.addProperty(subnode.id.name, 'Function', stack.length);
         }
         if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
-          argumentNames(subnode.params, options.store, stack.length + 1);
+          argumentNames(subnode.params, store, stack.length + 1);
         }
       }
       deeper = nestedNodes(subnode, caret);
@@ -856,7 +865,7 @@ function getStaticScope(tree, caret, options) {
     }
   } while (stack.length > 0 || (node && index < node.length) || !!deeper);
 
-  return {weights: options.store, types: typeStore};
+  return store;
 }
 
 //
@@ -940,7 +949,7 @@ function caretInBlock(node, caret) {
 //
 function argumentNames(node, store, weight) {
   for (var i = 0; i < node.length; i++) {
-    store.set(node[i].name, weight);
+    store.addProperty(node[i].name, null, weight);
   }
 }
 
@@ -949,38 +958,33 @@ function argumentNames(node, store, weight) {
 //
 // Type inference.
 
-// Types. FIXME: use them.
-var FunctionType    = 0x01 | 0;
-var ArrayType       = 0x02 | 0;
-var StringType      = 0x04 | 0;
-var BooleanType     = 0x08 | 0;
-var NumberType      = 0x10 | 0;
-var DateType        = 0x20 | 0;
-var RegExpType      = 0x40 | 0;
-
 // A type inference instance maps symbols to an object of the following form:
-// - properties: a Map from symbols to TypeInferred.
-// - type: a number, the bitwise OR of the types it may have.
-function TypeInferred() {
+//  - weight: relevance of the symbol,
+//  - properties: a Map from property symbols to typeStores for its properties,
+//  - type: a string of the name of the constructor.
+//  - func: if true, the type given is actually the name of the function whose
+//    call returned the object.
+//    FIXME: use this information to assume that all elements returned from this
+//    function have the same property.
+function TypeStore(type, weight, func) {
   this.properties = new Map();
-  this.type = 0|0;
+  this.type = type || "Object";
+  this.weight = weight || 0;
+  this.func = !!func;
 }
 
-TypeInferred.prototype = {
-  addType: function(type) {
-    this.type |= type;
-  },
-  isType: function(type) {
-    return (this.type & type) === type;
-  },
-  addProperty: function(symbol) {
+TypeStore.prototype = {
+  addProperty: function(symbol, type, weight, func) {
     if (!this.properties.has(symbol)) {
-      this.properties.set(symbol, new TypeInferred());
+      this.properties.set(symbol, new TypeStore(type, weight, func));
+    } else {
+      // The weight is proportional to the frequency.
+      this.properties.get(symbol).weight++;
     }
   }
 };
 
-// Store is a TypeInferred instance,
+// Store is a TypeStore instance,
 // node is a MemberExpression.
 function typeFromMember(store, node) {
   var symbols, symbol, i;
@@ -999,6 +1003,7 @@ function typeFromMember(store, node) {
   }
 
   // Now that we have the symbols, put them in the store.
+  // FIXME: use some type information.
   symbols.reverse();
   for (i = 0; i < symbols.length; i++) {
     symbol = symbols[i];
@@ -1008,6 +1013,8 @@ function typeFromMember(store, node) {
   return symbols;
 }
 
+// Store is a TypeStore instance,
+// node is a ObjectExpression.
 function typeFromObject(store, symbols, node) {
   var property, i, substore;
   substore = store;
