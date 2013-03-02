@@ -38,9 +38,15 @@ function staticAnalysis(context) {
     if (!!store.type) {
       store = staticCandidates.properties.get(store.type);
       if (!store) { return staticCompletion; }
-      store = store.properties.get('prototype');
-      if (!store) { return staticCompletion; }
-      store.properties.forEach(eachProperty);
+      if (!!store.returnedProps) {
+        store.returnedProps.forEach(eachProperty);
+      }
+      if (!store.funcall) {
+        // This was a constructor.
+        store = store.properties.get('prototype');
+        if (!store) { return staticCompletion; }
+        store.properties.forEach(eachProperty);
+      }
     }
   }
   return staticCompletion;
@@ -76,7 +82,7 @@ var staticCandidates;   // We keep the previous candidates around.
 //      - weight: relevance of the symbol,
 //      - properties: a typeStore for its properties,
 //      - type: a string of the name of the constructor.
-//      - func: a string of the function it is the result of.
+//      - funcall: true if the object was created from a function call.
 //   * parse: A JS parser that conforms to
 //     https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 //   * parserContinuation: A boolean. If true, the parser has a callback
@@ -164,6 +170,7 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.id) {
           store.addProperty(subnode.id.name, 'Function', stack.length);
+          readThisProps(store, subnode);
         }
         if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
@@ -283,21 +290,28 @@ function argumentNames(node, store, weight) {
 //  - weight: relevance of the symbol,
 //  - properties: a Map from property symbols to typeStores for its properties,
 //  - type: a string of the name of the constructor.
-//  - func: if true, the type given is actually the name of the function whose
-//    call returned the object.
+//  - funcall: if true, the type given is actually the name of the function
+//    whose call returned the object.
+//  - returnedProps: if the object is a function, a map from property symbols to
+//    typeStores, for all properties assumed to be shared by all symbols
+//    assigned to the result of this function.
 //    FIXME: use this information to assume that all elements returned from this
 //    function have the same property.
-function TypeStore(type, weight, func) {
+function TypeStore(type, weight, funcall) {
   this.properties = new Map();
   this.type = type || "Object";
   this.weight = weight || 0;
-  this.func = !!func;
+  this.funcall = !!funcall;
+  this.returnedProps = null;
+  if (type === "Function") {
+    this.returnedProps = new Map();
+  }
 }
 
 TypeStore.prototype = {
-  addProperty: function(symbol, type, weight, func) {
+  addProperty: function(symbol, type, weight, funcall) {
     if (!this.properties.has(symbol)) {
-      this.properties.set(symbol, new TypeStore(type, weight, func));
+      this.properties.set(symbol, new TypeStore(type, weight, funcall));
     } else {
       // The weight is proportional to the frequency.
       this.properties.get(symbol).weight++;
@@ -307,7 +321,9 @@ TypeStore.prototype = {
 
 // Store is a TypeStore instance,
 // node is a MemberExpression.
-function typeFromMember(store, node) {
+// funName is the name of the containing function.
+// Having funName set prevents setting properties on `this`.
+function typeFromMember(store, node, funName) {
   var symbols, symbol, i;
   symbols = [];
   symbol = '';
@@ -320,11 +336,26 @@ function typeFromMember(store, node) {
   if (node.object.type !== "ThisExpression") {
     symbols.push(node.object.name);  // At this point, node is an identifier.
   } else {
+    // Add the `this` properties to the function's generic properties.
+    var func = store.properties.get(funName);
+    if (!!func) {
+      for (i = symbols.length - 1; i >= 0; i--) {
+        symbol = symbols[i];
+        func.returnedProps.set(symbol, new TypeStore());
+        func = func.properties.get(symbol);
+      }
+      return symbols;
+    } else if (!!funName) {
+      // Even if we don't have a function, we must stop there
+      // if funName is defined.
+      return symbols;
+    }
+    // Treat `this` as a variable inside the function.
     symbols.push("this");
   }
 
   // Now that we have the symbols, put them in the store.
-  // FIXME: use some type information.
+  // FIXME: use type information for the last one.
   symbols.reverse();
   for (i = 0; i < symbols.length; i++) {
     symbol = symbols[i];
@@ -355,5 +386,19 @@ function typeFromObject(store, symbols, node) {
     substore.addProperty(
         property.key.name? property.key.name
                          : property.key.value);
+  }
+}
+
+// Assumes that the function has an explicit name.
+function readThisProps(store, node) {
+  var funcStore = store.properties.get(node.id.name);
+  var statements = node.body.body;
+  var i = 0;
+  for (; i < statements.length; i++) {
+    if (statements[i].expression &&
+        statements[i].expression.type === "AssignmentExpression" &&
+        statements[i].expression.left.type === "MemberExpression") {
+      typeFromMember(store, statements[i].expression.left, node.id.name);
+    }
   }
 }
