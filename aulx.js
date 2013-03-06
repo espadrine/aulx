@@ -688,8 +688,13 @@ function staticAnalysis(context) {
     if (display.indexOf(varName) == 0
         && display.length > varName.length) {
       // The candidate must match and have something to add!
-      staticCompletion.insert(new Candidate(display,
-          display.slice(varName.length), store.weight));
+      try {
+        var tokens = esprima.tokenize(display);
+        if (tokens.length === 1 && tokens[0].type === "Identifier") {
+          staticCompletion.insert(new Candidate(display,
+              display.slice(varName.length), store.weight));
+        }
+      } catch (e) {} // Definitely not a valid property.
     }
   };
 
@@ -1150,12 +1155,12 @@ function identifierLookup(global, context, options) {
     for (var prop in matchedProps) {
       // It needs to be a valid property: this is dot completion.
       try {
-        if (esprima.tokenize(prop)[0].type === "Identifier") {
-          completion.insert(new Candidate(prop, prop.slice(matchProp.length), -1));
+        var tokens = esprima.tokenize(prop);
+        if (tokens.length === 1 && tokens[0].type === "Identifier") {
+          completion.insert(
+              new Candidate(prop, prop.slice(matchProp.length), -1));
         }
-      } catch (e) {
-        // Definitely not a valid property.
-      }
+      } catch (e) {} // Definitely not a valid property.
     }
   }
   return completion;

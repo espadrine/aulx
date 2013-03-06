@@ -140,6 +140,13 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
      "The static analysis goes through the prototype.");
 
+source = 'var foo = {"b*": 0}; foo.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [],
+     "The static analysis doesn't complete non-identifiers.");
+
+
 
 // Testing keyword completion
 
