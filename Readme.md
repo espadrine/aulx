@@ -22,12 +22,12 @@ Done:
 
 - JS keyword autocompletion,
 - JS static analysis: a simple algorithm for autocompletion,
+- JS Static type inference,
 - JS dynamic analysis,
 - CSS property autocompletion.
 
 To do:
 
-- Static type inference for JS,
 - HTML (including inlined CSS and JS autocompletion),
 - CoffeeScript, SASS, … We can go crazy with this!
 
