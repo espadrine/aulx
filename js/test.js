@@ -109,6 +109,12 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
      "The JS completer has static object analysis in property assignments.");
 
+source = 'foo.bar(); foo.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "The JS completer has static object analysis in function calls.");
+
 source = 'foo.bar = {baz:5}; foo.bar.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,

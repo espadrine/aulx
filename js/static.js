@@ -162,6 +162,9 @@ function getStaticScope(tree, caret, options) {
           }
           subnode = subnode.right;       // f.g = function(){…};
         }
+        if (subnode.type == "CallExpression") { // f.g()
+          typeFromMember(store, subnode.callee);
+        }
         if (subnode.type == "Property") {
           subnode = subnode.value;       // {f: function(){…}};
         }
