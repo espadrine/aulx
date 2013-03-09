@@ -152,6 +152,11 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [],
      "The static analysis doesn't complete non-identifiers.");
 
+source = 'var foo = {b: {bar: 0}}; foo.b.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "The static analysis sees types in objects.");
 
 
 // Testing keyword completion

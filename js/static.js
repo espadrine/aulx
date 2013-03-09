@@ -391,9 +391,13 @@ function typeFromObject(store, symbols, node) {
   // Add the symbols.
   for (i = 0; i < node.properties.length; i++) {
     property = node.properties[i];
-    substore.addProperty(
-        property.key.name? property.key.name
-                         : property.key.value);
+    var propname = property.key.name? property.key.name
+                         : property.key.value;
+    substore.addProperty(propname);
+    if (property.value.type === "ObjectExpression") {
+      // We can recursively complete the object tree.
+      typeFromObject(store, symbols.concat(propname), property.value);
+    }
   }
 }
 
