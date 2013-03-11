@@ -158,6 +158,12 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
      "The static analysis sees types in objects.");
 
+source = 'if (foo) {} else if (foo) {foo.bar = function () { foo.b }}';
+caret = {line:0, ch:source.length - 3};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "The static analysis goes through else clauses.");
+
 
 // Testing keyword completion
 

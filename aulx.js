@@ -903,9 +903,7 @@ function nestedNodes(node, caret) {
       body = node.body;
     }
   } else if (node.consequent) {
-    body = node.consequent.body;  // If statements.
-  } else if (node.alternate) {
-    body = node.alternate.body;   // If/else statements.
+    body = fakeIfNodeList(node);  // If statements.
   } else if (node.block) {
     body = node.block.body;       // Try statements.
   } else if (node.handlers) {     // Try/catch.
@@ -926,6 +924,24 @@ function nestedNodes(node, caret) {
       // No need to parse a scope in which the caret is not.
       (newScope && !caretInBlock(node, caret))) {
     return null;
+  }
+  return body;
+}
+
+//
+// Construct a list of nodes to go through based on the sequence of ifs and else
+// ifs and elses.
+//
+// Parameters:
+// - node: an AST node of type IfStatement.
+function fakeIfNodeList(node) {
+  var body = [node.consequent];
+  if (node.alternate) {
+    if (node.alternate.type === "IfStatement") {
+      body = body.concat(fakeIfNodeList(node.alternate));
+    } else if (node.alternate.type === "BlockStatement") {
+      body.push(node.alternate);
+    }
   }
   return body;
 }
