@@ -164,6 +164,11 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
      "The static analysis goes through else clauses.");
 
+source = 'f.foo = {bar: 0}; f.foo.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "Static analysis with assignment to property.");
 
 // Testing keyword completion
 

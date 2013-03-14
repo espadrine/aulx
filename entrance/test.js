@@ -1,5 +1,5 @@
 // test.js: A module for unit tests.
-// Copyright © 2011-2013 Jan Keromnes, Thaddee Tyl. All rights reserved.
+// Copyright © 2011-2013 Thaddee Tyl, Jan Keromnes. All rights reserved.
 // Code covered by the LGPL license.
 
 var Test = function () { this.n = 0; this.errors = 0; };

@@ -1058,7 +1058,6 @@ function typeFromMember(store, node, funName) {
   }
 
   // Now that we have the symbols, put them in the store.
-  // FIXME: use type information for the last one.
   symbols.reverse();
   for (i = 0; i < symbols.length; i++) {
     symbol = symbols[i];
