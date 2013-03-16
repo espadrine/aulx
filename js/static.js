@@ -138,6 +138,9 @@ function getStaticScope(tree, caret, options) {
             store.addProperty(subnode.id.name, subnode.init.callee.name,
                 stack.length - 1);
             // FIXME: add built-in types detection.
+          } else if (subnode.init && subnode.init.type === "Literal") {
+            typeFromLiteral(store, [subnode.id.name], subnode.init);
+            store.properties.get(subnode.id.name).weight = stack.length - 1;
           } else if (subnode.init && subnode.init.type === "ObjectExpression") {
             typeFromObject(store, [subnode.id.name], subnode.init);
             store.properties.get(subnode.id.name).weight = stack.length - 1;
@@ -414,6 +417,35 @@ function typeFromObject(store, symbols, node) {
       typeFromObject(store, symbols.concat(propname), property.value);
     }
   }
+}
+
+// Store is a TypeStore instance,
+// node is a Literal.
+function typeFromLiteral(store, symbols, node) {
+  var property, i, substore, nextSubstore;
+  substore = store;
+  // Find the substore insertion point.
+  for (i = 0; i < symbols.length; i++) {
+    nextSubstore = substore.properties.get(symbols[i]);
+    if (!nextSubstore) {
+      // It really should exist.
+      substore.addProperty(symbols[i]);
+      nextSubstore = substore.properties.get(symbols[i]);
+    }
+    substore = nextSubstore;
+  }
+  // Add the symbols.
+  var constructor;
+  if (node.value instanceof RegExp) {
+    constructor = 'RegExp';
+  } else if (typeof node.value === "number") {
+    constructor = 'Number';
+  } else if (typeof node.value === "string") {
+    constructor = 'String';
+  } else if (typeof node.value === "boolean") {
+    constructor = 'Boolean';
+  }
+  substore.type = constructor;
 }
 
 // Assumes that the function has an explicit name.

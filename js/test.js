@@ -170,6 +170,17 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
      "Static analysis with assignment to property.");
 
+source = 'var foo = 0; foo.b';
+global = Object.create(null);
+global.Number = Object.create(null);
+global.Number.prototype = Object.create(null);
+global.Number.prototype.bar = 0;
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true, global:global}).candidates,
+     [{display:"bar", postfix:"ar", score:-1}],
+     "Static analysis maps literals to built-in types.");
+
 // Testing keyword completion
 
 source = 'vo';

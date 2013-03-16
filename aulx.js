@@ -817,6 +817,9 @@ function getStaticScope(tree, caret, options) {
             store.addProperty(subnode.id.name, subnode.init.callee.name,
                 stack.length - 1);
             // FIXME: add built-in types detection.
+          } else if (subnode.init && subnode.init.type === "Literal") {
+            typeFromLiteral(store, [subnode.id.name], subnode.init);
+            store.properties.get(subnode.id.name).weight = stack.length - 1;
           } else if (subnode.init && subnode.init.type === "ObjectExpression") {
             typeFromObject(store, [subnode.id.name], subnode.init);
             store.properties.get(subnode.id.name).weight = stack.length - 1;
@@ -1095,6 +1098,35 @@ function typeFromObject(store, symbols, node) {
   }
 }
 
+// Store is a TypeStore instance,
+// node is a Literal.
+function typeFromLiteral(store, symbols, node) {
+  var property, i, substore, nextSubstore;
+  substore = store;
+  // Find the substore insertion point.
+  for (i = 0; i < symbols.length; i++) {
+    nextSubstore = substore.properties.get(symbols[i]);
+    if (!nextSubstore) {
+      // It really should exist.
+      substore.addProperty(symbols[i]);
+      nextSubstore = substore.properties.get(symbols[i]);
+    }
+    substore = nextSubstore;
+  }
+  // Add the symbols.
+  var constructor;
+  if (node.value instanceof RegExp) {
+    constructor = 'RegExp';
+  } else if (typeof node.value === "number") {
+    constructor = 'Number';
+  } else if (typeof node.value === "string") {
+    constructor = 'String';
+  } else if (typeof node.value === "boolean") {
+    constructor = 'Boolean';
+  }
+  substore.type = constructor;
+}
+
 // Assumes that the function has an explicit name.
 function readThisProps(store, node) {
   var funcStore = store.properties.get(node.id.name);
@@ -1125,32 +1157,20 @@ function readThisProps(store, node) {
 //    See ./main.js.
 function identifierLookup(global, context, options) {
   var matchProp = '';
+  var completion = new Completion();
 
   var value = global;
-  if (context.completing === Completing.identifier) {
-    // foo.ba|
-    for (var i = 0; i < context.data.length - 1; i++) {
-      var descriptor = getPropertyDescriptor(value, context.data[i]);
-      if (descriptor && descriptor.get) {
-        // This is a getter / setter.
-        // We might trigger a side-effect by going deeper.
-        // We must stop before the world blows up in a Michael Bay manner.
-        value = null;
-        break;
-      } else {
-        // We need to go deeper. One property deeper.
-        value = value[context.data[i]];
-        if (value == null) { break; }
-      }
-    }
-    if (value != null) {
+  var symbols;
+  var store = staticCandidates;
+  if (context.completing === Completing.identifier ||  // foo.ba|
+      context.completing === Completing.property) {    // foo.|
+    symbols = context.data;
+    if (context.completing === Completing.identifier) {
+      symbols = context.data.slice(0, -1);
       matchProp = context.data[context.data.length - 1];
     }
-
-  } else if (context.completing === Completing.property) {
-    // foo.|
-    for (var i = 0; i < context.data.length; i++) {
-      var descriptor = getPropertyDescriptor(value, context.data[i]);
+    for (var i = 0; i < symbols.length; i++) {
+      var descriptor = getPropertyDescriptor(value, symbols[i]);
       if (descriptor && descriptor.get) {
         // This is a getter / setter.
         // We might trigger a side-effect by going deeper.
@@ -1159,10 +1179,12 @@ function identifierLookup(global, context, options) {
         break;
       } else {
         // We need to go deeper. One property deeper.
-        value = value[context.data[i]];
+        value = value[symbols[i]];
         if (value == null) { break; }
       }
     }
+    dynAnalysisFromType(completion, symbols, global, matchProp);
+
   } else if (context.completing === Completing.string) {
     // "foo".|
     value = global.String.prototype;
@@ -1171,23 +1193,44 @@ function identifierLookup(global, context, options) {
     value = global.RegExp.prototype;
   }
 
-  var completion = new Completion();
   if (value != null) {
-    var matchedProps = getMatchedProps(value, { matchProp: matchProp });
-    for (var prop in matchedProps) {
-      // It needs to be a valid property: this is dot completion.
-      try {
-        var tokens = esprima.tokenize(prop);
-        if (tokens.length === 1 && tokens[0].type === "Identifier") {
-          completion.insert(
-              new Candidate(prop, prop.slice(matchProp.length), -1));
-        }
-      } catch (e) {} // Definitely not a valid property.
-    }
+    completionFromValue(completion, value, matchProp);
   }
   return completion;
 }
 
+
+// completion: a Completion object,
+// symbols: a list of strings of properties.
+// global: a JS global object.
+// matchProp: the start of the property name to complete.
+function dynAnalysisFromType(completion, symbols, global, matchProp) {
+  var store = staticCandidates;
+  for (var i = 0; i < symbols.length; i++) {
+    store = store.properties.get(symbols[i]);
+  }
+  // Get the type of this property.
+  if (!!store && global[store.type]) {
+    completionFromValue(completion, global[store.type].prototype, matchProp);
+  }
+}
+
+// completion: a Completion object,
+// value: a JS object
+// matchProp: a string of the start of the property to complete.
+function completionFromValue(completion, value, matchProp) {
+  var matchedProps = getMatchedProps(value, { matchProp: matchProp });
+  for (var prop in matchedProps) {
+    // It needs to be a valid property: this is dot completion.
+    try {
+      var tokens = esprima.tokenize(prop);
+      if (tokens.length === 1 && tokens[0].type === "Identifier") {
+        completion.insert(
+            new Candidate(prop, prop.slice(matchProp.length), -1));
+      }
+    } catch (e) {} // Definitely not a valid property.
+  }
+}
 
 
 // Get all accessible properties on this JS value, as an Object.
