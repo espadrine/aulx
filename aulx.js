@@ -41,38 +41,49 @@ exports = completer;
 // Firefox landed Maps without forEach, hence the odd check for that.
 var Map = this.Map;
 if (!(Map && Map.prototype.forEach)) {
-  var Map = function Map() {
-    // Cut off the inheritance tree.
-    this.map = Object.create(null);
-  };
+  var Map = function Map() {};
 
-  Map.prototype = {
-    get: function(key) {
-      return this.map[key];
-    },
-    has: function(key) {
-      return this.map[key] !== undefined;
-    },
-    set: function(key, value) {
-      this.map[key] = value;
-    },
-    delete: function(key) {
-      if (this.has(key)) {
-        delete this.map[key];
-        return true;
-      } else {
-        return false;
+  Map.prototype = Object.create(null, {
+    get: {
+      enumerable: false,
+      value: function(key) {
+        return this[key];
       }
     },
-    forEach: function(callbackfn, thisArg) {
-      callbackfn = callbackfn.bind(thisArg);
-      for (var i in this.map) {
-        callbackfn(this.map[i], i, this);
+    has: {
+      enumerable: false,
+      value: function(key) {
+        return this[key] !== undefined;
       }
-    }
-  };
+    },
+    set: {
+      enumerable: false,
+      value: function(key, value) {
+        this[key] = value;
+      }
+    },
+    delete: {
+      enumerable: false,
+      value: function(key) {
+        if (this.has(key)) {
+          delete this[key];
+          return true;
+        } else {
+          return false;
+        }
+      }
+    },
+    forEach: {
+      enumerable: false,
+      value: function(callbackfn, thisArg) {
+        callbackfn = callbackfn.bind(thisArg);
+        for (var i in this) {
+          callbackfn(this[i], i, this);
+        }
+      }
+    },
+  });
 }
-
 
 
 // Completion-related data structures.
