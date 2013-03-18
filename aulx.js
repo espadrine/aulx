@@ -832,7 +832,7 @@ function getStaticScope(tree, caret, options) {
             typeFromLiteral(store, [subnode.id.name], subnode.init);
             store.properties.get(subnode.id.name).weight = stack.length - 1;
           } else if (subnode.init && subnode.init.type === "ObjectExpression") {
-            typeFromObject(store, [subnode.id.name], subnode.init);
+            typeFromLiteral(store, [subnode.id.name], subnode.init);
             store.properties.get(subnode.id.name).weight = stack.length - 1;
           } else {
             // Simple object.
@@ -851,7 +851,7 @@ function getStaticScope(tree, caret, options) {
             symbols = typeFromMember(store, subnode.left);
           }
           if (subnode.right.type === "ObjectExpression") {
-            typeFromObject(store, symbols, subnode.right);
+            typeFromLiteral(store, symbols, subnode.right);
           }
           subnode = subnode.right;       // f.g = function(){…};
         }
@@ -1082,35 +1082,7 @@ function typeFromMember(store, node, funName) {
 }
 
 // Store is a TypeStore instance,
-// node is a ObjectExpression.
-function typeFromObject(store, symbols, node) {
-  var property, i, substore, nextSubstore;
-  substore = store;
-  // Find the substore insertion point.
-  for (i = 0; i < symbols.length; i++) {
-    nextSubstore = substore.properties.get(symbols[i]);
-    if (!nextSubstore) {
-      // It really should exist.
-      substore.addProperty(symbols[i]);
-      nextSubstore = substore.properties.get(symbols[i]);
-    }
-    substore = nextSubstore;
-  }
-  // Add the symbols.
-  for (i = 0; i < node.properties.length; i++) {
-    property = node.properties[i];
-    var propname = property.key.name? property.key.name
-                         : property.key.value;
-    substore.addProperty(propname);
-    if (property.value.type === "ObjectExpression") {
-      // We can recursively complete the object tree.
-      typeFromObject(store, symbols.concat(propname), property.value);
-    }
-  }
-}
-
-// Store is a TypeStore instance,
-// node is a Literal.
+// node is a Literal or an ObjectExpression.
 function typeFromLiteral(store, symbols, node) {
   var property, i, substore, nextSubstore;
   substore = store;
@@ -1125,8 +1097,19 @@ function typeFromLiteral(store, symbols, node) {
     substore = nextSubstore;
   }
   // Add the symbols.
-  var constructor;
-  if (node.value instanceof RegExp) {
+  var constructor = "Object";
+  if (node.type === "ObjectExpression") {
+    for (i = 0; i < node.properties.length; i++) {
+      property = node.properties[i];
+      var propname = property.key.name? property.key.name
+                           : property.key.value;
+      substore.addProperty(propname);
+      if (property.value.type === "ObjectExpression") {
+        // We can recursively complete the object tree.
+        typeFromLiteral(store, symbols.concat(propname), property.value);
+      }
+    }
+  } else if (node.value instanceof RegExp) {
     constructor = 'RegExp';
   } else if (typeof node.value === "number") {
     constructor = 'Number';
