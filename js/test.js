@@ -181,6 +181,18 @@ t.eq(jsCompleter(source, caret,
      [{display:"bar", postfix:"ar", score:-1}],
      "Static analysis maps literals to built-in types.");
 
+source = 'var foo = []; foo.b';
+global = Object.create(null);
+global.Array = Object.create(null);
+global.Array.prototype = Object.create(null);
+global.Array.prototype.bar = 0;
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true, global:global}).candidates,
+     [{display:"bar", postfix:"ar", score:-1}],
+     "Static analysis identifies array literals.");
+
+
 // Testing keyword completion
 
 source = 'vo';

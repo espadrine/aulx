@@ -138,10 +138,9 @@ function getStaticScope(tree, caret, options) {
             store.addProperty(subnode.id.name, subnode.init.callee.name,
                 stack.length - 1);
             // FIXME: add built-in types detection.
-          } else if (subnode.init && subnode.init.type === "Literal") {
-            typeFromLiteral(store, [subnode.id.name], subnode.init);
-            store.properties.get(subnode.id.name).weight = stack.length - 1;
-          } else if (subnode.init && subnode.init.type === "ObjectExpression") {
+          } else if (subnode.init && subnode.init.type === "Literal" ||
+                     subnode.init && subnode.init.type === "ObjectExpression" ||
+                     subnode.init && subnode.init.type === "ArrayExpression") {
             typeFromLiteral(store, [subnode.id.name], subnode.init);
             store.properties.get(subnode.id.name).weight = stack.length - 1;
           } else {
@@ -419,6 +418,8 @@ function typeFromLiteral(store, symbols, node) {
         typeFromLiteral(store, symbols.concat(propname), property.value);
       }
     }
+  } else if (node.type === "ArrayExpression") {
+    constructor = 'Array';
   } else if (node.value instanceof RegExp) {
     constructor = 'RegExp';
   } else if (typeof node.value === "number") {
