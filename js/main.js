@@ -28,6 +28,9 @@
 //    * tokenize: a JS tokenizer that is compatible with Esprima.
 //    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
 //      analysis. Recommendation: run it at every change of line.
+//    * globalIdentifier: A String to identify the symbol representing the
+//      JS global object, such as 'window' (the default), for static analysis
+//      purposes.
 //
 // Return a sorted Completion (see entrance/completers.js).
 //  - candidateFromDisplay: Map from display string to candidate.
@@ -65,7 +68,8 @@ function jsCompleter(source, caret, options) {
 
   if (staticCandidates != null) {
     // They have a non-negative score.
-    var staticCompletion = staticAnalysis(context);
+    var staticCompletion = staticAnalysis(context,
+        {globalIdentifier: options.globalIdentifier});
     if (!!staticCompletion) { completion.meld(staticCompletion); }
   }
 
