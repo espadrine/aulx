@@ -192,6 +192,13 @@ t.eq(jsCompleter(source, caret,
      [{display:"bar", postfix:"ar", score:-1}],
      "Static analysis identifies array literals.");
 
+source = 'window.quux = 0; qu';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true, globalIdentifier:'window'}).candidates,
+     [{display:"quux", postfix:"ux", score:0}],
+     "Static analysis uses the globalIdentifier option.");
+
 
 // Testing keyword completion
 

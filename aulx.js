@@ -689,7 +689,14 @@ function skipMultilineComment(source, index, line, targetLine, column) {
   };
 }
 // Return a Completion instance, or undefined.
-function staticAnalysis(context) {
+// Parameters:
+// - context: result of the getContext function.
+// - options:
+//   * globalIdentifier: the string of a global parameter.
+//     For instance, `global`, or `window` (the default).
+function staticAnalysis(context, options) {
+  options = options || {};
+  options.globalIdentifier = options.globalIdentifier || 'window';
   var staticCompletion = new Completion();
   var completingIdentifier = (context.completing === Completing.identifier);
   var completingProperty = (context.completing === Completing.property);
@@ -713,6 +720,12 @@ function staticAnalysis(context) {
     varName = context.data[0];
     // They have a positive score.
     staticCandidates.properties.forEach(eachProperty);
+    if (options.globalIdentifier &&
+        staticCandidates.properties[options.globalIdentifier]) {
+      // Add properties like `window.|`.
+      staticCandidates.properties[options.globalIdentifier].properties
+        .forEach(eachProperty);
+    }
 
   } else if (completingIdentifier || completingProperty) {
     var store = staticCandidates;
