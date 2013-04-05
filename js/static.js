@@ -177,11 +177,11 @@ function getStaticScope(tree, caret, options) {
           }
           subnode = subnode.right;       // f.g = function(){…};
         }
-        if (subnode.type == "CallExpression") { // f.g()
+        if (subnode.type == "CallExpression") {
           if (subnode.callee.name) { // f()
             store.addProperty(subnode.callee.name, 'Function',
                 stack.length);
-          } else {
+          } else if (!subnode.callee.body) { // f.g()
             typeFromMember(store, subnode.callee);
           }
         }
