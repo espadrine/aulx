@@ -199,6 +199,14 @@ t.eq(jsCompleter(source, caret,
      [{display:"quux", postfix:"ux", score:0}],
      "Static analysis uses the globalIdentifier option.");
 
+source = 'init(); ini';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true}).candidates,
+     [{display:"init", postfix:"t", score:0}],
+     "Static analysis reads undefined functions.");
+
+
 
 // Testing keyword completion
 

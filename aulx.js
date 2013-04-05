@@ -872,7 +872,12 @@ function getStaticScope(tree, caret, options) {
           subnode = subnode.right;       // f.g = function(){…};
         }
         if (subnode.type == "CallExpression") { // f.g()
-          typeFromMember(store, subnode.callee);
+          if (subnode.callee.name) { // f()
+            store.addProperty(subnode.callee.name, 'Function',
+                stack.length);
+          } else {
+            typeFromMember(store, subnode.callee);
+          }
         }
         if (subnode.type == "Property") {
           subnode = subnode.value;       // {f: function(){…}};
@@ -1060,7 +1065,8 @@ function typeFromMember(store, node, funName) {
   var symbols, symbol, i;
   symbols = [];
   symbol = '';
-  while (node.object.type !== "Identifier" &&
+  while (node.object &&   // `foo()` doesn't have a `.object`.
+         node.object.type !== "Identifier" &&
          node.object.type !== "ThisExpression") {
     symbols.push(node.property.name);
     node = node.object;
