@@ -68,8 +68,13 @@ function dynAnalysisFromType(completion, symbols, global, matchProp) {
     store = store.properties.get(symbols[i]);
   }
   // Get the type of this property.
-  if (!!store && global[store.type]) {
-    completionFromValue(completion, global[store.type].prototype, matchProp);
+  if (!!store) {
+    store.type.forEach(function(sourceIndices, funcName) {
+      // The element is an instance of that class (source index = 0).
+      if (sourceIndices.indexOf(0) >= 0 && global[funcName]) {
+        completionFromValue(completion, global[funcName].prototype, matchProp);
+      }
+    });
   }
 }
 

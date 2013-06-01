@@ -54,17 +54,24 @@ function staticAnalysis(context, options) {
 
     // Seek data from its type.
     if (!!store.type) {
-      store = staticCandidates.properties.get(store.type);
-      if (!store) { return staticCompletion; }
-      if (!!store.returnedProps) {
-        store.returnedProps.forEach(eachProperty);
-      }
-      if (!store.funcall) {
-        // This was a constructor.
-        store = store.properties.get('prototype');
-        if (!store) { return staticCompletion; }
-        store.properties.forEach(eachProperty);
-      }
+      store.type.forEach(function(sourceIndices, funcName) {
+        funcStore = staticCandidates.properties.get(funcName);
+        if (!funcStore) { return; }
+        for (var i = 0; i < store.type[funcName].length; i++) {
+          var sourceIndex = store.type[funcName][i];
+          // Each sourceIndex corresponds to a source,
+          // and the `sources` property is that source.
+          if (funcStore.sources) {
+            funcStore.sources[sourceIndex].forEach(eachProperty);
+            if (sourceIndex === 0) {
+              // This was a constructor.
+              var protostore = funcStore.properties.get('prototype');
+              if (!protostore) { return; }
+              protostore.properties.forEach(eachProperty);
+            }
+          }
+        }
+      });
     }
   }
   return staticCompletion;
@@ -96,11 +103,7 @@ var staticCandidates;   // We keep the previous candidates around.
 //   from which we want the scope.
 // - options:
 //   * store: The object we return. Use to avoid allocation.
-//      It is a typeStore, that is, a map from symbol names (as strings) to:
-//      - weight: relevance of the symbol,
-//      - properties: a typeStore for its properties,
-//      - type: a string of the name of the constructor.
-//      - funcall: true if the object was created from a function call.
+//      It is a TypeStore.
 //   * parse: A JS parser that conforms to
 //     https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 //   * parserContinuation: A boolean. If true, the parser has a callback
@@ -148,8 +151,12 @@ function getStaticScope(tree, caret, options) {
         if (subnode.type == "VariableDeclarator") {
           // Variable names go one level too deep.
           if (subnode.init && subnode.init.type === "NewExpression") {
-            store.addProperty(subnode.id.name, subnode.init.callee.name,
-                stack.length - 1);
+            store.addProperty(subnode.id.name,      // property name
+                { name: subnode.init.callee.name,   // atomic type
+                  index: 0 },   // created from `new C()`
+                stack.length - 1);                  // weight
+            store.addProperty(subnode.init.callee.name,
+                { name: 'Function', index: 0 });
             // FIXME: add built-in types detection.
           } else if (subnode.init && subnode.init.type === "Literal" ||
                      subnode.init && subnode.init.type === "ObjectExpression" ||
@@ -179,7 +186,8 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.type == "CallExpression") {
           if (subnode.callee.name) { // f()
-            store.addProperty(subnode.callee.name, 'Function',
+            store.addProperty(subnode.callee.name,
+                { name: 'Function', index: 0 },
                 stack.length);
           } else if (!subnode.callee.body) { // f.g()
             typeFromMember(store, subnode.callee);
@@ -197,7 +205,9 @@ function getStaticScope(tree, caret, options) {
           subnode = subnode.callee;
         }
         if (subnode.id) {
-          store.addProperty(subnode.id.name, 'Function', stack.length);
+          store.addProperty(subnode.id.name,
+              { name: 'Function', index: 0 },
+              stack.length);
           readThisProps(store, subnode);
         }
         if (caretInBlock(subnode, caret)) {
@@ -330,35 +340,90 @@ function argumentNames(node, store, weight) {
 //
 // Type inference.
 
+// A type is a list of sources.
+//
+// *Sources* can be either:
+//
+// - The result of a `new Constructor()` call.
+// - The result of a function.
+// - A parameter to a function.
+//
+// Each function stores information in the TypeStore about all possible sources
+// it can give, as a list of sources (aka maps to typestores):
+//
+//     [`this` properties, return properties, param1, param2, etc.]
+//
+// Each instance stores information about the list of sources it may come from.
+// Inferred information about the properties of each instance comes from the
+// aggregated properties of each source.
+// The type is therefore a map of the following form.
+//
+//      { "name of the original function": [list of indices of source] }
+//
+// We may represent atomic type outside a compound type as the following:
+//
+//      { name: "name of the origin", index: source index }
+//
+
 // A type inference instance maps symbols to an object of the following form:
-//  - weight: relevance of the symbol,
 //  - properties: a Map from property symbols to typeStores for its properties,
-//  - type: a string of the name of the constructor.
-//  - funcall: if true, the type given is actually the name of the function
-//    whose call returned the object.
-//  - returnedProps: if the object is a function, a map from property symbols to
-//    typeStores, for all properties assumed to be shared by all symbols
-//    assigned to the result of this function.
-//    FIXME: use this information to assume that all elements returned from this
-//    function have the same property.
-function TypeStore(type, weight, funcall) {
+//  - type: a structural type (ie, not atomic) (see above).
+//  - weight: integer, relevance of the symbol,
+function TypeStore(type, weight) {
   this.properties = new Map();
-  this.type = type || "Object";
-  this.weight = weight || 0;
-  this.funcall = !!funcall;
-  this.returnedProps = null;
-  if (type === "Function") {
-    this.returnedProps = new Map();
+  this.type = type || new Map();
+  this.weight = weight|0;
+  if (this.type.has("Function")) {
+    // The sources for properties on `this` and on the return object.
+    this.sources = [new Map(), new Map()];
   }
 }
 
 TypeStore.prototype = {
-  addProperty: function(symbol, type, weight, funcall) {
+  // Add a property named `symbol` typed from the atomic type `atype`.
+  // `atype` and `weight` may not be present.
+  addProperty: function(symbol, atype, weight) {
     if (!this.properties.has(symbol)) {
-      this.properties.set(symbol, new TypeStore(type, weight, funcall));
+      if (atype != null) {
+        var newType = new Map();
+        var typeSources = [atype.index];
+        newType.set(atype.name, typeSources);
+      }
+      this.properties.set(symbol, new TypeStore(newType, weight));
     } else {
       // The weight is proportional to the frequency.
-      this.properties.get(symbol).weight++;
+      var p = this.properties.get(symbol);
+      p.weight++;   // FIXME: this increment is questionnable.
+      if (atype != null) {
+        p.addType(atype);
+      }
+    }
+  },
+
+  // Given an atomic type (name, index), is this one?
+  hasType: function(atype) {
+    if (!this.type.has(atype.name)) { return false; }
+    return this.type.get(atype.name).indexOf(atype.index) >= 0;
+  },
+
+  // We can add an atomic type (a combination of the name of the original
+  // function and the source index) to an existing compound type.
+  addType: function(atype) {
+    if (atype.name === "Function") {
+      // The sources for properties on `this` and on the return object.
+      this.sources = [new Map(), new Map()];
+    }
+    if (this.type.has(atype.name)) {
+      // The original function name is already known.
+      var sourceIndices = this.type.get(atype.name);
+      if (sourceIndices.indexOf(atype.index) === -1) {
+        sourceIndices.push(atype.index);
+      }
+    } else {
+      // New original function name (common case).
+      var sourceIndices = [];
+      sourceIndices.push(atype.index);
+      this.type.set(atype.name, sourceIndices);
     }
   }
 };
@@ -386,7 +451,7 @@ function typeFromMember(store, node, funName) {
     if (!!func) {
       for (i = symbols.length - 1; i >= 0; i--) {
         symbol = symbols[i];
-        func.returnedProps.set(symbol, new TypeStore());
+        func.sources[0].set(symbol, new TypeStore());
         func = func.properties.get(symbol);
       }
       return symbols;
@@ -448,7 +513,7 @@ function typeFromLiteral(store, symbols, node) {
   } else if (typeof node.value === "boolean") {
     constructor = 'Boolean';
   }
-  substore.type = constructor;
+  substore.addType({ name: constructor, index: 0 });
 }
 
 // Assumes that the function has an explicit name.
