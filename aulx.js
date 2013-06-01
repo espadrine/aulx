@@ -1108,7 +1108,7 @@ TypeStore.prototype = {
   addType: function(atype) {
     if (atype.name === "Function") {
       // The sources for properties on `this` and on the return object.
-      this.sources = [new Map(), new Map()];
+      this.sources = this.sources || [new Map(), new Map()];
     }
     if (this.type.has(atype.name)) {
       // The original function name is already known.
