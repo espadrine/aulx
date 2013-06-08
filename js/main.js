@@ -132,7 +132,7 @@ var Completing = {  // Examples.
   string: 2,        // "foo".|
   regex: 3          // /foo/.|
 };
-js.Completing = Completing;
+js.prototype.Completing = Completing;
 
 // Fetch data from the position of the caret in a source.
 // The data is an object containing the following:
@@ -194,7 +194,7 @@ function getContext(source, caret) {
   }
   return contextFromToken(tokens, tokIndex, caret);
 };
-js.getContext = getContext;
+js.prototype.getContext = getContext;
 
 // Either
 //
