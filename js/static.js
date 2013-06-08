@@ -1,12 +1,7 @@
 // Return a Completion instance, or undefined.
 // Parameters:
 // - context: result of the getContext function.
-// - options:
-//   * globalIdentifier: the string of a global parameter.
-//     For instance, `global`, or `window` (the default).
-function staticAnalysis(context, options) {
-  options = options || {};
-  options.globalIdentifier = options.globalIdentifier || 'window';
+function staticAnalysis(context) {
   var staticCompletion = new Completion();
   var completingIdentifier = (context.completing === Completing.identifier);
   var completingProperty = (context.completing === Completing.property);
@@ -29,16 +24,16 @@ function staticAnalysis(context, options) {
   if (completingIdentifier && context.data.length === 1) {
     varName = context.data[0];
     // They have a positive score.
-    staticCandidates.properties.forEach(eachProperty);
-    if (options.globalIdentifier &&
-        staticCandidates.properties[options.globalIdentifier]) {
+    this.staticCandidates.properties.forEach(eachProperty);
+    if (this.options.globalIdentifier &&
+        this.staticCandidates.properties[this.options.globalIdentifier]) {
       // Add properties like `window.|`.
-      staticCandidates.properties[options.globalIdentifier].properties
+      this.staticCandidates.properties[this.options.globalIdentifier].properties
         .forEach(eachProperty);
     }
 
   } else if (completingIdentifier || completingProperty) {
-    var store = staticCandidates;
+    var store = this.staticCandidates;
     for (var i = 0; i < context.data.length - 1; i++) {
       store = store.properties.get(context.data[i]);
       if (!store) { return; }
@@ -55,7 +50,7 @@ function staticAnalysis(context, options) {
     // Seek data from its type.
     if (!!store.type) {
       store.type.forEach(function(sourceIndices, funcName) {
-        funcStore = staticCandidates.properties.get(funcName);
+        funcStore = this.staticCandidates.properties.get(funcName);
         if (!funcStore) { return; }
         for (var i = 0; i < store.type[funcName].length; i++) {
           var sourceIndex = store.type[funcName][i];
@@ -71,20 +66,15 @@ function staticAnalysis(context, options) {
             }
           }
         }
-      });
+      }.bind(this));
     }
   }
   return staticCompletion;
 }
 
+js.prototype.staticAnalysis = staticAnalysis;
 
 // Static analysis helper functions.
-//
-
-// Cache in use for static analysis.
-var staticCandidates;   // We keep the previous candidates around.
-
-
 
 //
 // Get all the variables in a JS script at a certain position.
@@ -101,34 +91,24 @@ var staticCandidates;   // We keep the previous candidates around.
 // - source: The JS script to parse.
 // - caret: {line:0, ch:0} The line and column in the scrip
 //   from which we want the scope.
-// - options:
-//   * store: The object we return. Use to avoid allocation.
-//      It is a TypeStore.
-//   * parse: A JS parser that conforms to
-//     https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
-//   * parserContinuation: A boolean. If true, the parser has a callback
-//     argument that sends the AST.
 //
-function updateStaticCache(source, caret, options) {
-  options = options || {};
-  options.store = options.store || new TypeStore();
-  options.parse = options.parse || esprima.parse;
-
+function updateStaticCache(source, caret) {
+  this.options.store = this.options.store || new TypeStore();
   try {
-    if (!!options.parserContinuation) {
-      options.parse(source, {loc:true}, function(tree) {
-        staticCandidates = getStaticScope(tree, caret, options)
-            || staticCandidates;   // If it fails, use the previous version.
-      });
+    if (!!this.options.parserContinuation) {
+      this.options.parse(source, {loc:true}, function(tree) {
+        this.staticCandidates = getStaticScope(tree, caret, this.options)
+            || this.staticCandidates;   // If it fails, use the previous version.
+      }.bind(this));
     } else {
-      var tree = options.parse(source, {loc:true});
-      staticCandidates = getStaticScope(tree, caret, options)
-          || staticCandidates;   // If it fails, use the previous version.
+      var tree = this.options.parse(source, {loc:true});
+      this.staticCandidates = getStaticScope(tree, caret, this.options)
+          || this.staticCandidates;   // If it fails, use the previous version.
     }
   } catch (e) { return null; }
 }
 
-jsCompleter.updateStaticCache = updateStaticCache;
+js.prototype.updateStaticCache = updateStaticCache;
 
 function getStaticScope(tree, caret, options) {
   var subnode, symbols;

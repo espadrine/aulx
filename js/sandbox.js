@@ -13,13 +13,12 @@
 //  - context: {completion: number, data: array}
 //    We assume completion to be either identifier or property.
 //    See ./main.js.
-function identifierLookup(global, context, options) {
+function identifierLookup(global, context) {
   var matchProp = '';
   var completion = new Completion();
 
   var value = global;
   var symbols;
-  var store = staticCandidates;
   if (context.completing === Completing.identifier ||  // foo.ba|
       context.completing === Completing.property) {    // foo.|
     symbols = context.data;
@@ -41,7 +40,7 @@ function identifierLookup(global, context, options) {
         if (value == null) { break; }
       }
     }
-    dynAnalysisFromType(completion, symbols, global, matchProp);
+    this.dynAnalysisFromType(completion, symbols, global, matchProp);
 
   } else if (context.completing === Completing.string) {
     // "foo".|
@@ -57,13 +56,14 @@ function identifierLookup(global, context, options) {
   return completion;
 }
 
+js.prototype.identifierLookup = identifierLookup;
 
 // completion: a Completion object,
 // symbols: a list of strings of properties.
 // global: a JS global object.
 // matchProp: the start of the property name to complete.
 function dynAnalysisFromType(completion, symbols, global, matchProp) {
-  var store = staticCandidates;
+  var store = this.staticCandidates;
   for (var i = 0; i < symbols.length; i++) {
     store = store.properties.get(symbols[i]);
   }
@@ -77,6 +77,8 @@ function dynAnalysisFromType(completion, symbols, global, matchProp) {
     });
   }
 }
+
+js.prototype.dynAnalysisFromType = dynAnalysisFromType;
 
 // completion: a Completion object,
 // value: a JS object

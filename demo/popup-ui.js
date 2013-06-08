@@ -50,6 +50,12 @@ function Autocompletion(aEditor, aOptions) {
   this.editor = aEditor;
   this.document = global.document;
 
+  // Initiate Aulx in JS mode.
+  this.aulxJS = new Aulx.js({
+    global: global,
+    parse: parseCont,
+    parserContinuation: true
+  });
   // Create the popover.
   this.popover = createPopover(this.document, aOptions.cssClass);
   // Track clicking on options.
@@ -104,8 +110,8 @@ Autocompletion.prototype = {
   _delayedPopup: null,
 
   runCompleters: function AC_runCompleters() {
-    this._completion = Aulx.js(this.editor.getValue(), this.editor.getCursor(),
-        {global: global});
+    this._completion = this.aulxJS.complete(this.editor.getValue(),
+                                            this.editor.getCursor());
   },
 
   // Show the completions that are asked for.
@@ -232,8 +238,8 @@ Autocompletion.prototype = {
     // If the line changed, the static analysis is worth updating.
     var lineno = aEditor.getCursor().line;
     if (this._line !== lineno) {
-      Aulx.js.updateStaticCache(this.editor.getValue(), this.editor.getCursor(),
-          {parse: parseCont, parserContinuation: true});
+      this.aulxJS.fireStaticAnalysis(this.editor.getValue(),  
+                                     this.editor.getCursor());
       this._line = lineno;
       this.stop();
     }

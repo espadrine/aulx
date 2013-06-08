@@ -132,8 +132,6 @@ function inRange(index, range) {
   return index > range[0] && index <= range[1];
 }
 (function(exports) {
-// FIXME: make a constructor to allow a stateful autocompletion engine.
-
 //
 // Get a list of completions we can have, based on the state of the editor.
 // Autocompletion happens based on the following factors
@@ -161,10 +159,6 @@ function inRange(index, range) {
 //      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 //    * parserContinuation: boolean. If true, the parser has a callback argument
 //      which is called with the AST.
-//    * tokenize: a JS tokenizer that is compatible with Esprima.
-//    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
-//      analysis. Recommendation: run it at every change of line.
-//      // FIXME: put this functionality in a separate method.
 //    * globalIdentifier: A String to identify the symbol representing the
 //      JS global object, such as 'window' (the default), for static analysis
 //      purposes.
@@ -176,16 +170,22 @@ function inRange(index, range) {
 //    * postfix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
-function jsCompleter(source, caret, options) {
-  options = options || {};
+function js(options) {
+  this.options = options || {};
+  this.options.parse = this.options.parse ||
+                       (this.options.parserContinuation = false , esprima.parse);
+  this.options.globalIdentifier = this.options.globalIdentifier || 'window';
+  this.staticCandidates = null;
+}
+
+function jsCompleter(source, caret) {
   var completion = new Completion();
 
   // Caching the result of a static analysis for perf purposes.
-  // Only do this (possibly expensive) operation when required.
-  if (staticCandidates == null || options.fireStaticAnalysis) {
-    updateStaticCache(source, caret,
-        { parse: options.parse,
-          parserContinuation: options.parserContinuation });
+  if (!this.staticCandidates) {
+    this.updateStaticCache(source, caret,
+        { parse: this.options.parse,
+          parserContinuation: this.options.parserContinuation });
   }
 
   // We use a primitive sorting algorithm.
@@ -194,8 +194,7 @@ function jsCompleter(source, caret, options) {
   // FIXME: implement a score-based system that adjusts its weights based on
   // statistics from what the user actually selects.
 
-  var context = getContext(options.contextFrom || source, caret,
-      options.tokenizer);
+  var context = getContext(this.options.contextFrom || source, caret);
   if (!context) {
     // We couldn't get the context, we won't be able to complete.
     return completion;
@@ -203,18 +202,18 @@ function jsCompleter(source, caret, options) {
 
   // Static analysis (Level 2).
 
-  if (staticCandidates != null) {
+  if (this.staticCandidates) {
     // They have a non-negative score.
-    var staticCompletion = staticAnalysis(context,
-        {globalIdentifier: options.globalIdentifier});
+    var staticCompletion = this.staticAnalysis(context,
+        {globalIdentifier: this.options.globalIdentifier});
     if (!!staticCompletion) { completion.meld(staticCompletion); }
   }
 
   // Sandbox-based candidates (Level 1).
 
-  if (options.global !== undefined) {
+  if (this.options.global !== undefined) {
     // They have a score of -1.
-    var sandboxCompletion = identifierLookup(options.global, context);
+    var sandboxCompletion = this.identifierLookup(this.options.global, context);
     if (!!sandboxCompletion) { completion.meld(sandboxCompletion); }
   }
 
@@ -243,15 +242,21 @@ function jsCompleter(source, caret, options) {
   return completion;
 }
 
-exports.js = jsCompleter;
+js.prototype.complete = jsCompleter;
 
+function fireStaticAnalysis(source, caret) {
+  this.updateStaticCache(source, caret,
+      { parse: this.options.parse,
+        parserContinuation: this.options.parserContinuation });
+}
 
+js.prototype.fireStaticAnalysis = fireStaticAnalysis;
+
+exports.js = js;
 
 
 // Generic helpers.
 //
-
-
 
 // Autocompletion types.
 
@@ -261,7 +266,7 @@ var Completing = {  // Examples.
   string: 2,        // "foo".|
   regex: 3          // /foo/.|
 };
-jsCompleter.Completing = Completing;
+js.Completing = Completing;
 
 // Fetch data from the position of the caret in a source.
 // The data is an object containing the following:
@@ -277,12 +282,11 @@ jsCompleter.Completing = Completing;
 // Parameters:
 //  - source: a string of JS code.
 //  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
-function getContext(source, caret, tokenize) {
-  tokenize = tokenize || esprima.tokenize;
+function getContext(source, caret) {
   var reduction = reduceContext('' + source, caret);
   if (reduction === null) { return null; }
   caret = reduction[1];
-  var tokens = tokenize(reduction[0], {loc:true});
+  var tokens = esprima.tokenize(reduction[0], {loc:true});
 
   // At this point, we know we were able to tokenize it.
   // Find the token just before the caret.
@@ -324,7 +328,7 @@ function getContext(source, caret, tokenize) {
   }
   return contextFromToken(tokens, tokIndex, caret);
 };
-jsCompleter.getContext = getContext;
+js.getContext = getContext;
 
 // Either
 //
@@ -698,12 +702,7 @@ function skipMultilineComment(source, index, line, targetLine, column) {
 // Return a Completion instance, or undefined.
 // Parameters:
 // - context: result of the getContext function.
-// - options:
-//   * globalIdentifier: the string of a global parameter.
-//     For instance, `global`, or `window` (the default).
-function staticAnalysis(context, options) {
-  options = options || {};
-  options.globalIdentifier = options.globalIdentifier || 'window';
+function staticAnalysis(context) {
   var staticCompletion = new Completion();
   var completingIdentifier = (context.completing === Completing.identifier);
   var completingProperty = (context.completing === Completing.property);
@@ -726,16 +725,16 @@ function staticAnalysis(context, options) {
   if (completingIdentifier && context.data.length === 1) {
     varName = context.data[0];
     // They have a positive score.
-    staticCandidates.properties.forEach(eachProperty);
-    if (options.globalIdentifier &&
-        staticCandidates.properties[options.globalIdentifier]) {
+    this.staticCandidates.properties.forEach(eachProperty);
+    if (this.options.globalIdentifier &&
+        this.staticCandidates.properties[this.options.globalIdentifier]) {
       // Add properties like `window.|`.
-      staticCandidates.properties[options.globalIdentifier].properties
+      this.staticCandidates.properties[this.options.globalIdentifier].properties
         .forEach(eachProperty);
     }
 
   } else if (completingIdentifier || completingProperty) {
-    var store = staticCandidates;
+    var store = this.staticCandidates;
     for (var i = 0; i < context.data.length - 1; i++) {
       store = store.properties.get(context.data[i]);
       if (!store) { return; }
@@ -752,7 +751,7 @@ function staticAnalysis(context, options) {
     // Seek data from its type.
     if (!!store.type) {
       store.type.forEach(function(sourceIndices, funcName) {
-        funcStore = staticCandidates.properties.get(funcName);
+        funcStore = this.staticCandidates.properties.get(funcName);
         if (!funcStore) { return; }
         for (var i = 0; i < store.type[funcName].length; i++) {
           var sourceIndex = store.type[funcName][i];
@@ -768,20 +767,15 @@ function staticAnalysis(context, options) {
             }
           }
         }
-      });
+      }.bind(this));
     }
   }
   return staticCompletion;
 }
 
+js.prototype.staticAnalysis = staticAnalysis;
 
 // Static analysis helper functions.
-//
-
-// Cache in use for static analysis.
-var staticCandidates;   // We keep the previous candidates around.
-
-
 
 //
 // Get all the variables in a JS script at a certain position.
@@ -798,34 +792,24 @@ var staticCandidates;   // We keep the previous candidates around.
 // - source: The JS script to parse.
 // - caret: {line:0, ch:0} The line and column in the scrip
 //   from which we want the scope.
-// - options:
-//   * store: The object we return. Use to avoid allocation.
-//      It is a TypeStore.
-//   * parse: A JS parser that conforms to
-//     https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
-//   * parserContinuation: A boolean. If true, the parser has a callback
-//     argument that sends the AST.
 //
-function updateStaticCache(source, caret, options) {
-  options = options || {};
-  options.store = options.store || new TypeStore();
-  options.parse = options.parse || esprima.parse;
-
+function updateStaticCache(source, caret) {
+  this.options.store = this.options.store || new TypeStore();
   try {
-    if (!!options.parserContinuation) {
-      options.parse(source, {loc:true}, function(tree) {
-        staticCandidates = getStaticScope(tree, caret, options)
-            || staticCandidates;   // If it fails, use the previous version.
-      });
+    if (!!this.options.parserContinuation) {
+      this.options.parse(source, {loc:true}, function(tree) {
+        this.staticCandidates = getStaticScope(tree, caret, this.options)
+            || this.staticCandidates;   // If it fails, use the previous version.
+      }.bind(this));
     } else {
-      var tree = options.parse(source, {loc:true});
-      staticCandidates = getStaticScope(tree, caret, options)
-          || staticCandidates;   // If it fails, use the previous version.
+      var tree = this.options.parse(source, {loc:true});
+      this.staticCandidates = getStaticScope(tree, caret, this.options)
+          || this.staticCandidates;   // If it fails, use the previous version.
     }
   } catch (e) { return null; }
 }
 
-jsCompleter.updateStaticCache = updateStaticCache;
+js.prototype.updateStaticCache = updateStaticCache;
 
 function getStaticScope(tree, caret, options) {
   var subnode, symbols;
@@ -1241,13 +1225,12 @@ function readThisProps(store, node) {
 //  - context: {completion: number, data: array}
 //    We assume completion to be either identifier or property.
 //    See ./main.js.
-function identifierLookup(global, context, options) {
+function identifierLookup(global, context) {
   var matchProp = '';
   var completion = new Completion();
 
   var value = global;
   var symbols;
-  var store = staticCandidates;
   if (context.completing === Completing.identifier ||  // foo.ba|
       context.completing === Completing.property) {    // foo.|
     symbols = context.data;
@@ -1269,7 +1252,7 @@ function identifierLookup(global, context, options) {
         if (value == null) { break; }
       }
     }
-    dynAnalysisFromType(completion, symbols, global, matchProp);
+    this.dynAnalysisFromType(completion, symbols, global, matchProp);
 
   } else if (context.completing === Completing.string) {
     // "foo".|
@@ -1285,13 +1268,14 @@ function identifierLookup(global, context, options) {
   return completion;
 }
 
+js.prototype.identifierLookup = identifierLookup;
 
 // completion: a Completion object,
 // symbols: a list of strings of properties.
 // global: a JS global object.
 // matchProp: the start of the property name to complete.
 function dynAnalysisFromType(completion, symbols, global, matchProp) {
-  var store = staticCandidates;
+  var store = this.staticCandidates;
   for (var i = 0; i < symbols.length; i++) {
     store = store.properties.get(symbols[i]);
   }
@@ -1305,6 +1289,8 @@ function dynAnalysisFromType(completion, symbols, global, matchProp) {
     });
   }
 }
+
+js.prototype.dynAnalysisFromType = dynAnalysisFromType;
 
 // completion: a Completion object,
 // value: a JS object

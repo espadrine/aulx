@@ -1,5 +1,3 @@
-// FIXME: make a constructor to allow a stateful autocompletion engine.
-
 //
 // Get a list of completions we can have, based on the state of the editor.
 // Autocompletion happens based on the following factors
@@ -27,10 +25,6 @@
 //      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 //    * parserContinuation: boolean. If true, the parser has a callback argument
 //      which is called with the AST.
-//    * tokenize: a JS tokenizer that is compatible with Esprima.
-//    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
-//      analysis. Recommendation: run it at every change of line.
-//      // FIXME: put this functionality in a separate method.
 //    * globalIdentifier: A String to identify the symbol representing the
 //      JS global object, such as 'window' (the default), for static analysis
 //      purposes.
@@ -42,16 +36,22 @@
 //    * postfix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
-function jsCompleter(source, caret, options) {
-  options = options || {};
+function js(options) {
+  this.options = options || {};
+  this.options.parse = this.options.parse ||
+                       (this.options.parserContinuation = false , esprima.parse);
+  this.options.globalIdentifier = this.options.globalIdentifier || 'window';
+  this.staticCandidates = null;
+}
+
+function jsCompleter(source, caret) {
   var completion = new Completion();
 
   // Caching the result of a static analysis for perf purposes.
-  // Only do this (possibly expensive) operation when required.
-  if (staticCandidates == null || options.fireStaticAnalysis) {
-    updateStaticCache(source, caret,
-        { parse: options.parse,
-          parserContinuation: options.parserContinuation });
+  if (!this.staticCandidates) {
+    this.updateStaticCache(source, caret,
+        { parse: this.options.parse,
+          parserContinuation: this.options.parserContinuation });
   }
 
   // We use a primitive sorting algorithm.
@@ -60,8 +60,7 @@ function jsCompleter(source, caret, options) {
   // FIXME: implement a score-based system that adjusts its weights based on
   // statistics from what the user actually selects.
 
-  var context = getContext(options.contextFrom || source, caret,
-      options.tokenizer);
+  var context = getContext(this.options.contextFrom || source, caret);
   if (!context) {
     // We couldn't get the context, we won't be able to complete.
     return completion;
@@ -69,18 +68,18 @@ function jsCompleter(source, caret, options) {
 
   // Static analysis (Level 2).
 
-  if (staticCandidates != null) {
+  if (this.staticCandidates) {
     // They have a non-negative score.
-    var staticCompletion = staticAnalysis(context,
-        {globalIdentifier: options.globalIdentifier});
+    var staticCompletion = this.staticAnalysis(context,
+        {globalIdentifier: this.options.globalIdentifier});
     if (!!staticCompletion) { completion.meld(staticCompletion); }
   }
 
   // Sandbox-based candidates (Level 1).
 
-  if (options.global !== undefined) {
+  if (this.options.global !== undefined) {
     // They have a score of -1.
-    var sandboxCompletion = identifierLookup(options.global, context);
+    var sandboxCompletion = this.identifierLookup(this.options.global, context);
     if (!!sandboxCompletion) { completion.meld(sandboxCompletion); }
   }
 
@@ -109,15 +108,21 @@ function jsCompleter(source, caret, options) {
   return completion;
 }
 
-exports.js = jsCompleter;
+js.prototype.complete = jsCompleter;
 
+function fireStaticAnalysis(source, caret) {
+  this.updateStaticCache(source, caret,
+      { parse: this.options.parse,
+        parserContinuation: this.options.parserContinuation });
+}
 
+js.prototype.fireStaticAnalysis = fireStaticAnalysis;
+
+exports.js = js;
 
 
 // Generic helpers.
 //
-
-
 
 // Autocompletion types.
 
@@ -127,7 +132,7 @@ var Completing = {  // Examples.
   string: 2,        // "foo".|
   regex: 3          // /foo/.|
 };
-jsCompleter.Completing = Completing;
+js.Completing = Completing;
 
 // Fetch data from the position of the caret in a source.
 // The data is an object containing the following:
@@ -143,12 +148,11 @@ jsCompleter.Completing = Completing;
 // Parameters:
 //  - source: a string of JS code.
 //  - caret: an object {line: 0-indexed line, ch: 0-indexed column}.
-function getContext(source, caret, tokenize) {
-  tokenize = tokenize || esprima.tokenize;
+function getContext(source, caret) {
   var reduction = reduceContext('' + source, caret);
   if (reduction === null) { return null; }
   caret = reduction[1];
-  var tokens = tokenize(reduction[0], {loc:true});
+  var tokens = esprima.tokenize(reduction[0], {loc:true});
 
   // At this point, we know we were able to tokenize it.
   // Find the token just before the caret.
@@ -190,7 +194,7 @@ function getContext(source, caret, tokenize) {
   }
   return contextFromToken(tokens, tokIndex, caret);
 };
-jsCompleter.getContext = getContext;
+js.getContext = getContext;
 
 // Either
 //
