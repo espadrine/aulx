@@ -133,6 +133,32 @@ function inRange(index, range) {
 }
 (function(exports) {
 //
+// Instantiate an Aulx object for JS autocompletion.
+//
+// Parameters:
+//  - options: Object containing optional parameters:
+//    * contextFrom: Part of the source necessary to get the context.
+//      May be a string of the current line (which the editor may provide
+//      more efficiently than the default way).
+//      Use this if you know that reduceContext() is too slow for you.
+//    * global: global object. Can be used to perform level 1 (see above).
+//    * parse: a JS parser that is compatible with
+//      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
+//    * parserContinuation: boolean. If true, the parser has a callback argument
+//      which is called with the AST.
+//    * globalIdentifier: A String to identify the symbol representing the
+//      JS global object, such as 'window' (the default), for static analysis
+//      purposes.
+//
+function JS(options) {
+  this.options = options || {};
+  this.options.parse = this.options.parse ||
+                       (this.options.parserContinuation = false, esprima.parse);
+  this.options.globalIdentifier = this.options.globalIdentifier || 'window';
+  this.staticCandidates = null;
+}
+
+//
 // Get a list of completions we can have, based on the state of the editor.
 // Autocompletion happens based on the following factors
 // (with increasing relevance):
@@ -149,19 +175,6 @@ function inRange(index, range) {
 //  - caret: Object containing two fields:
 //    * line: the line number of the caret, starting with zero.
 //    * ch: the column of the caret, starting with zero.
-//  - options: Object containing optional parameters:
-//    * contextFrom: Part of the source necessary to get the context.
-//      May be a string of the current line (which the editor may provide
-//      more efficiently than the default way).
-//      Use this if you know that reduceContext() is too slow for you.
-//    * global: global object. Can be used to perform level 1 (see above).
-//    * parse: a JS parser that is compatible with
-//      https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
-//    * parserContinuation: boolean. If true, the parser has a callback argument
-//      which is called with the AST.
-//    * globalIdentifier: A String to identify the symbol representing the
-//      JS global object, such as 'window' (the default), for static analysis
-//      purposes.
 //
 // Return a sorted Completion (see entrance/completers.js).
 //  - candidateFromDisplay: Map from display string to candidate.
@@ -170,14 +183,6 @@ function inRange(index, range) {
 //    * postfix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
-function JS(options) {
-  this.options = options || {};
-  this.options.parse = this.options.parse ||
-                       (this.options.parserContinuation = false, esprima.parse);
-  this.options.globalIdentifier = this.options.globalIdentifier || 'window';
-  this.staticCandidates = null;
-}
-
 function jsCompleter(source, caret) {
   var completion = new Completion();
 

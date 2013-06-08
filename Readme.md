@@ -12,9 +12,68 @@ other JS files, although it isn't minified.
 
 You can try to require it in node.
 
-    var aulx = require('aulx');
-    var source = 'var foo; fo';
-    aulx.js(source, {line:0, ch:11});
+```javascript
+var aulx = require('aulx');
+var source = 'var foo; fo';
+aulx.js(source, {line:0, ch:11});
+```
+
+## Interface
+
+To autocomplete JS code, you will probably want to instantiate an Aulx object.
+The constructor has the following options.
+
+```javascript
+var aulx = Aulx.JS({
+    // A JS parser compatible with SpiderMonkey.
+  parse: esprima.parse,
+    // If true, the parser above is actually a function that returns the
+    // parser function. Primarily in use to put the parser in
+    // a worker thread.
+  parserContinuation: false,
+    // An object to inspect in order to benefit from dynamic introspection.
+  global: window,
+    // The name of the global object, used in the static analysis.
+  globalIdentifier: "window"
+});
+
+aulx.complete(
+  source,           // A string containing JS source code.
+  { line: 0,        // The line where the caret is.
+    ch: 11 }        // The column where the caret is.
+);
+
+// Returns a sorted Completion object, like the following:
+{ candidateFromDisplay:
+   { foo:
+      { display: 'foo',
+        postfix: 'o',
+        score: 0 },
+     for:
+      { display: 'for',
+        postfix: 'r',
+        score: -9 } },
+  candidates:
+   [ { display: 'foo',
+       postfix: 'o',
+       score: 0 },
+     { display: 'for',
+       postfix: 'r',
+       score: -9 } ] }
+```
+
+You can however boycott the creation of an Aulx instance, generating a new
+instance every time:
+
+```javascript
+aulx.js(source, {line:0, ch:11}, optionsJustLikeAbove);
+```
+
+Similarly, CSS autocompletion has the following interface.
+
+```javascript
+aulx.css(cssSource, {line:0, ch:11});
+```
 
 ## State of the project
 
