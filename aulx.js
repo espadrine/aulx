@@ -1470,12 +1470,6 @@ var JSKeywords = (function(keywords) {
 //  - caret: Object containing two fields:
 //    * line: the line number of the caret, starting with zero.
 //    * ch: the column of the caret, starting with zero.
-//  - options: Object containing optional parameters:
-//    * line: String of the current line (which the editor may provide
-//      more efficiently than the default way.
-//    * global: global object. Can be used to perform level 1 (see above).
-//    * fireStaticAnalysis: A Boolean to run the (possibly expensive) static
-//      analysis. Recommendation: run it at every newline.
 //
 // Return a sorted Completion (see entrance/completers.js).
 //  - candidateFromDisplay: Map from display string to candidate.
