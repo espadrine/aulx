@@ -51,7 +51,7 @@ function Autocompletion(aEditor, aOptions) {
   this.document = global.document;
 
   // Initiate Aulx in JS mode.
-  this.aulxJS = new Aulx.js({
+  this.aulxJS = new Aulx.JS({
     global: global,
     parse: parseCont,
     parserContinuation: true

@@ -56,7 +56,7 @@ function identifierLookup(global, context) {
   return completion;
 }
 
-js.prototype.identifierLookup = identifierLookup;
+JS.prototype.identifierLookup = identifierLookup;
 
 // completion: a Completion object,
 // symbols: a list of strings of properties.
@@ -78,7 +78,7 @@ function dynAnalysisFromType(completion, symbols, global, matchProp) {
   }
 }
 
-js.prototype.dynAnalysisFromType = dynAnalysisFromType;
+JS.prototype.dynAnalysisFromType = dynAnalysisFromType;
 
 // completion: a Completion object,
 // value: a JS object

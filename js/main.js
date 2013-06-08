@@ -36,10 +36,10 @@
 //    * postfix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
-function js(options) {
+function JS(options) {
   this.options = options || {};
   this.options.parse = this.options.parse ||
-                       (this.options.parserContinuation = false , esprima.parse);
+                       (this.options.parserContinuation = false, esprima.parse);
   this.options.globalIdentifier = this.options.globalIdentifier || 'window';
   this.staticCandidates = null;
 }
@@ -108,7 +108,7 @@ function jsCompleter(source, caret) {
   return completion;
 }
 
-js.prototype.complete = jsCompleter;
+JS.prototype.complete = jsCompleter;
 
 function fireStaticAnalysis(source, caret) {
   this.updateStaticCache(source, caret,
@@ -116,9 +116,15 @@ function fireStaticAnalysis(source, caret) {
         parserContinuation: this.options.parserContinuation });
 }
 
-js.prototype.fireStaticAnalysis = fireStaticAnalysis;
+JS.prototype.fireStaticAnalysis = fireStaticAnalysis;
+
+// Same as `(new aulx.JS(options)).complete(source, caret)`.
+function js(source, caret, options) {
+  return (new JS(options)).complete(source, caret);
+}
 
 exports.js = js;
+exports.JS = JS;
 
 
 // Generic helpers.
@@ -132,7 +138,7 @@ var Completing = {  // Examples.
   string: 2,        // "foo".|
   regex: 3          // /foo/.|
 };
-js.prototype.Completing = Completing;
+js.Completing = Completing;
 
 // Fetch data from the position of the caret in a source.
 // The data is an object containing the following:
@@ -194,7 +200,7 @@ function getContext(source, caret) {
   }
   return contextFromToken(tokens, tokIndex, caret);
 };
-js.prototype.getContext = getContext;
+js.getContext = getContext;
 
 // Either
 //

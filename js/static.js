@@ -72,7 +72,7 @@ function staticAnalysis(context) {
   return staticCompletion;
 }
 
-js.prototype.staticAnalysis = staticAnalysis;
+JS.prototype.staticAnalysis = staticAnalysis;
 
 // Static analysis helper functions.
 
@@ -108,7 +108,7 @@ function updateStaticCache(source, caret) {
   } catch (e) { return null; }
 }
 
-js.prototype.updateStaticCache = updateStaticCache;
+JS.prototype.updateStaticCache = updateStaticCache;
 
 function getStaticScope(tree, caret, options) {
   var subnode, symbols;
