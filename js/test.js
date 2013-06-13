@@ -170,6 +170,13 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
      [{display:"bar", postfix:"ar", score:0}],
      "Static analysis with assignment to property.");
 
+source = 'function foo(){return {bar:1};}; var o = foo(); o.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", postfix:"ar", score:0}],
+     "Static analysis reads the return type of functions.");
+
 source = 'var foo = 0; foo.b';
 global = Object.create(null);
 global.Number = Object.create(null);
@@ -205,7 +212,6 @@ t.eq(jsCompleter(source, caret,
     {fireStaticAnalysis:true}).candidates,
      [{display:"init", postfix:"t", score:0}],
      "Static analysis reads undefined functions.");
-
 
 
 // Testing keyword completion

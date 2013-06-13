@@ -57,7 +57,7 @@ function staticAnalysis(context) {
           // Each sourceIndex corresponds to a source,
           // and the `sources` property is that source.
           if (funcStore.sources) {
-            funcStore.sources[sourceIndex].forEach(eachProperty);
+            funcStore.sources[sourceIndex].properties.forEach(eachProperty);
             if (sourceIndex === 0) {
               // This was a constructor.
               var protostore = funcStore.properties.get('prototype');
@@ -98,7 +98,7 @@ function updateStaticCache(source, caret) {
     if (!!this.options.parserContinuation) {
       this.options.parse(source, {loc:true}, function(tree) {
         this.staticCandidates = getStaticScope(tree, caret, this.options)
-            || this.staticCandidates;   // If it fails, use the previous version.
+            || this.staticCandidates;  // If it fails, use the previous version.
       }.bind(this));
     } else {
       var tree = this.options.parse(source, {loc:true});
@@ -143,6 +143,12 @@ function getStaticScope(tree, caret, options) {
                      subnode.init && subnode.init.type === "ArrayExpression") {
             typeFromLiteral(store, [subnode.id.name], subnode.init);
             store.properties.get(subnode.id.name).weight = stack.length - 1;
+          } else if (subnode.init && subnode.init.type === "CallExpression") {
+            // `var foo = bar()`
+            store.addProperty(subnode.id.name,
+                { name: subnode.init.callee.name,   // bar
+                  index: 1 },                       // created from `bar()`
+                stack.length - 1);
           } else {
             // Simple object.
             store.addProperty(subnode.id.name, null, stack.length - 1);
@@ -156,6 +162,7 @@ function getStaticScope(tree, caret, options) {
           subnode = subnode.expression;  // Parenthesized expression.
         }
         if (subnode.type == "AssignmentExpression") {
+          // foo.bar = something;
           if (subnode.left.type === "MemberExpression") {
             symbols = typeFromMember(store, subnode.left);
           }
@@ -188,7 +195,7 @@ function getStaticScope(tree, caret, options) {
           store.addProperty(subnode.id.name,
               { name: 'Function', index: 0 },
               stack.length);
-          readThisProps(store, subnode);
+          readFun(store, subnode);
         }
         if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
@@ -355,7 +362,7 @@ function TypeStore(type, weight) {
   this.weight = weight|0;
   if (this.type.has("Function")) {
     // The sources for properties on `this` and on the return object.
-    this.sources = [new Map(), new Map()];
+    this.sources = [new TypeStore(), new TypeStore()];
   }
 }
 
@@ -391,7 +398,7 @@ TypeStore.prototype = {
   addType: function(atype) {
     if (atype.name === "Function") {
       // The sources for properties on `this` and on the return object.
-      this.sources = this.sources || [new Map(), new Map()];
+      this.sources = this.sources || [new TypeStore(), new TypeStore()];
     }
     if (this.type.has(atype.name)) {
       // The original function name is already known.
@@ -431,7 +438,8 @@ function typeFromMember(store, node, funName) {
     if (!!func) {
       for (i = symbols.length - 1; i >= 0; i--) {
         symbol = symbols[i];
-        func.sources[0].set(symbol, new TypeStore());
+        func.sources[0].addProperty(symbol,
+            {name:"Object", index:0}, func.weight);
         func = func.properties.get(symbol);
       }
       return symbols;
@@ -496,16 +504,27 @@ function typeFromLiteral(store, symbols, node) {
   substore.addType({ name: constructor, index: 0 });
 }
 
-// Assumes that the function has an explicit name.
-function readThisProps(store, node) {
+//
+// Assumes that the function has an explicit name (node.id.name).
+//
+// node is a named function declaration / expression.
+function readFun(store, node) {
   var funcStore = store.properties.get(node.id.name);
   var statements = node.body.body;
-  var i = 0;
-  for (; i < statements.length; i++) {
+  for (var i = 0; i < statements.length; i++) {
     if (statements[i].expression &&
         statements[i].expression.type === "AssignmentExpression" &&
         statements[i].expression.left.type === "MemberExpression") {
+      // Member expression like `this.bar = …`.
       typeFromMember(store, statements[i].expression.left, node.id.name);
+
+    } else if (statements[i].type = "ReturnStatement") {
+      // Return statement, like `return {foo:bar}`.
+      if (statements[i].argument.type === "Literal" ||
+          statements[i].argument.type === "ObjectExpression") {
+        // The source at index 1 is that for the returned object.
+        typeFromLiteral(funcStore.sources[1], [], statements[i].argument);
+      }
     }
   }
 }
