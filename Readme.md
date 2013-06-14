@@ -44,7 +44,14 @@ aulx.complete(
 );
 
 // Returns a sorted Completion object, like the following:
-{ candidateFromDisplay:
+{ candidates:
+   [ { display: 'foo',
+       postfix: 'o',
+       score: 0 },
+     { display: 'for',
+       postfix: 'r',
+       score: -9 } ],
+  candidateFromDisplay:
    { foo:
       { display: 'foo',
         postfix: 'o',
@@ -52,14 +59,7 @@ aulx.complete(
      for:
       { display: 'for',
         postfix: 'r',
-        score: -9 } },
-  candidates:
-   [ { display: 'foo',
-       postfix: 'o',
-       score: 0 },
-     { display: 'for',
-       postfix: 'r',
-       score: -9 } ] }
+        score: -9 } } }
 ```
 
 You can however boycott the creation of an Aulx instance, generating a new
