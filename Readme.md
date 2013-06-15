@@ -45,20 +45,20 @@ aulx.complete(
 
 // Returns a sorted Completion object, like the following:
 { candidates:
-   [ { display: 'foo',
-       postfix: 'o',
-       score: 0 },
+   [ { display: 'foo',      // Symbol to complete (show that).
+       prefix: 'fo',        // What that completion is based on.
+       score: 0 },          // Don't use the score.
      { display: 'for',
-       postfix: 'r',
+       prefix: 'fo',
        score: -9 } ],
   candidateFromDisplay:
    { foo:
       { display: 'foo',
-        postfix: 'o',
+        prefix: 'fo',
         score: 0 },
      for:
       { display: 'for',
-        postfix: 'r',
+        prefix: 'fo',
         score: -9 } } }
 ```
 
