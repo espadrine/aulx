@@ -77,9 +77,9 @@ if (!(Map && Map.prototype.forEach)) {
 
 // The only way to distinguish two candidates is through how they are displayed.
 // That's how the user can tell the difference, too.
-function Candidate(display, postfix, score) {
+function Candidate(display, prefix, score) {
   this.display = display;   // What the user sees.
-  this.postfix = postfix;   // What is added when selected.
+  this.prefix = prefix;   // What is added when selected.
   this.score = score|0;     // Its score.
 }
 

@@ -20,7 +20,7 @@
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 function cssCompleter(source, caret, options) {

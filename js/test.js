@@ -72,7 +72,7 @@ var global = Object.create(null);
 global.foo = Object.create(null);
 global.foo.bar = 0;
 t.eq(jsCompleter(source, caret, {global:global}).candidates,
-     [{display:"bar", postfix:"r", score:-1}],
+     [{display:"bar", prefix:"ba", score:-1}],
      "The JS completer works with dynamic analysis.");
 
 source = '"foo".';
@@ -82,7 +82,7 @@ global.String = Object.create(null);
 global.String.prototype = Object.create(null);
 global.String.prototype.big = 1;
 t.eq(jsCompleter(source, caret, {global:global}).candidates,
-     [{display:"big", postfix:"big", score:-1}],
+     [{display:"big", prefix:"", score:-1}],
      "The JS completer does string completion.");
 
 source = '/foo/.';
@@ -92,7 +92,7 @@ global.RegExp = Object.create(null);
 global.RegExp.prototype = Object.create(null);
 global.RegExp.prototype.test = 'something';
 t.eq(jsCompleter(source, caret, {global:global}).candidates,
-     [{display:"test", postfix:"test", score:-1}],
+     [{display:"test", prefix:"", score:-1}],
      "The JS completer does RegExp completion.");
 
 // Testing static.js
@@ -100,50 +100,50 @@ t.eq(jsCompleter(source, caret, {global:global}).candidates,
 source = 'var foobar; foo';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"foobar", postfix:"bar", score:0}],
+     [{display:"foobar", prefix:"foo", score:0}],
      "The JS completer works with static analysis.");
 
 source = 'foo.bar = 5; foo.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The JS completer has static object analysis in property assignments.");
 
 source = 'foo.bar(); foo.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The JS completer has static object analysis in function calls.");
 
 source = 'foo.bar = {baz:5}; foo.bar.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"baz", postfix:"az", score:0}],
+     [{display:"baz", prefix:"b", score:0}],
      "The JS completer has static object literal analysis " +
      "in object assignments.");
 
 source = 'var foo = {bar:5}; foo.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The JS completer has static object analysis in definition.");
 
 source = 'var foo = {"bar":5}; foo.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The JS completer has static object analysis even with strings.");
 
 source = 'this.bar = 5; this.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The JS completer has static object analysis even with strings.");
 
 source = 'F.prototype.bar = 0; var foo = new F(); foo.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The static analysis goes through the prototype.");
 
 source = 'var foo = {"b*": 0}; foo.b';
@@ -155,26 +155,26 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
 source = 'var foo = {b: {bar: 0}}; foo.b.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The static analysis sees types in objects.");
 
 source = 'if (foo) {} else if (foo) {foo.bar = function () { foo.b }}';
 caret = {line:0, ch:source.length - 3};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "The static analysis goes through else clauses.");
 
 source = 'f.foo = {bar: 0}; f.foo.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "Static analysis with assignment to property.");
 
 source = 'function foo(){return {bar:1};}; var o = foo(); o.b';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret,
     {fireStaticAnalysis:true}).candidates,
-     [{display:"bar", postfix:"ar", score:0}],
+     [{display:"bar", prefix:"b", score:0}],
      "Static analysis reads the return type of functions.");
 
 source = 'var foo = 0; foo.b';
@@ -185,7 +185,7 @@ global.Number.prototype.bar = 0;
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret,
     {fireStaticAnalysis:true, global:global}).candidates,
-     [{display:"bar", postfix:"ar", score:-1}],
+     [{display:"bar", prefix:"b", score:-1}],
      "Static analysis maps literals to built-in types.");
 
 source = 'var foo = []; foo.b';
@@ -196,21 +196,21 @@ global.Array.prototype.bar = 0;
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret,
     {fireStaticAnalysis:true, global:global}).candidates,
-     [{display:"bar", postfix:"ar", score:-1}],
+     [{display:"bar", prefix:"b", score:-1}],
      "Static analysis identifies array literals.");
 
 source = 'window.quux = 0; qu';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret,
     {fireStaticAnalysis:true, globalIdentifier:'window'}).candidates,
-     [{display:"quux", postfix:"ux", score:0}],
+     [{display:"quux", prefix:"qu", score:0}],
      "Static analysis uses the globalIdentifier option.");
 
 source = 'init(); ini';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret,
     {fireStaticAnalysis:true}).candidates,
-     [{display:"init", postfix:"t", score:0}],
+     [{display:"init", prefix:"ini", score:0}],
      "Static analysis reads undefined functions.");
 
 
@@ -224,8 +224,8 @@ t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates[0].display
 
 source = 'vo';
 caret = {line:0, ch:source.length};
-t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates[0].postfix,
-     "id",
+t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates[0].prefix,
+     "vo",
      "The JS completer completes keywords (or at least 'void').");
 
 

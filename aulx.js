@@ -91,9 +91,9 @@ if (!(Map && Map.prototype.forEach)) {
 
 // The only way to distinguish two candidates is through how they are displayed.
 // That's how the user can tell the difference, too.
-function Candidate(display, postfix, score) {
+function Candidate(display, prefix, score) {
   this.display = display;   // What the user sees.
-  this.postfix = postfix;   // What is added when selected.
+  this.prefix = prefix;   // What is added when selected.
   this.score = score|0;     // Its score.
 }
 
@@ -180,7 +180,7 @@ function JS(options) {
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 function jsCompleter(source, caret) {
@@ -234,7 +234,7 @@ function jsCompleter(source, caret) {
           && keyword.length > context.data[0].length) {
         keywordCompletion.insert(new Candidate(
               keyword,
-              keyword.slice(context.data[0].length),
+              context.data[0],
               JSKeywords[keyword]));
         // The score depends on the frequency of the keyword.
         // See keyword.js
@@ -727,7 +727,7 @@ function staticAnalysis(context) {
         var tokens = esprima.tokenize(display);
         if (tokens.length === 1 && tokens[0].type === "Identifier") {
           staticCompletion.insert(new Candidate(display,
-              display.slice(varName.length), store.weight));
+              varName, store.weight));
         }
       } catch (e) {} // Definitely not a valid property.
     }
@@ -1247,7 +1247,7 @@ function readFun(store, node) {
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 // Parameters:
@@ -1333,7 +1333,7 @@ function completionFromValue(completion, value, matchProp) {
       var tokens = esprima.tokenize(prop);
       if (tokens.length === 1 && tokens[0].type === "Identifier") {
         completion.insert(
-            new Candidate(prop, prop.slice(matchProp.length), -1));
+            new Candidate(prop, matchProp, -1));
       }
     } catch (e) {} // Definitely not a valid property.
   }
@@ -1494,7 +1494,7 @@ var JSKeywords = (function(keywords) {
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 function cssCompleter(source, caret, options) {
@@ -2352,7 +2352,7 @@ exports.tokenize = tokenize;
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 // Parameters:
@@ -2361,7 +2361,7 @@ function completeProperties(startProp) {
   var completion = new Completion();
   for (var prop in properties) {
     if (prop.indexOf(startProp) === 0) {
-      completion.insert(new Candidate(prop, prop.slice(startProp.length), 0));
+      completion.insert(new Candidate(prop, startProp, 0));
     }
   }
   return completion;

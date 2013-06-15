@@ -14,7 +14,7 @@ var caret;
 source = 'foo \n{ azi: baz; }';
 caret = {line:1, ch:5};
 t.eq(aulx.css(source, caret).candidates,
-     [{display:"azimuth", postfix:"muth", score:0}],
+     [{display:"azimuth", prefix:"azi", score:0}],
      "CSS property autocompletion.");
 
 

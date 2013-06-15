@@ -46,7 +46,7 @@ function JS(options) {
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 function jsCompleter(source, caret) {
@@ -100,7 +100,7 @@ function jsCompleter(source, caret) {
           && keyword.length > context.data[0].length) {
         keywordCompletion.insert(new Candidate(
               keyword,
-              keyword.slice(context.data[0].length),
+              context.data[0],
               JSKeywords[keyword]));
         // The score depends on the frequency of the keyword.
         // See keyword.js

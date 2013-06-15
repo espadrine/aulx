@@ -15,7 +15,7 @@ function staticAnalysis(context) {
         var tokens = esprima.tokenize(display);
         if (tokens.length === 1 && tokens[0].type === "Identifier") {
           staticCompletion.insert(new Candidate(display,
-              display.slice(varName.length), store.weight));
+              varName, store.weight));
         }
       } catch (e) {} // Definitely not a valid property.
     }

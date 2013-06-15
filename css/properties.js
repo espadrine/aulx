@@ -5,7 +5,7 @@
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 // Parameters:
@@ -14,7 +14,7 @@ function completeProperties(startProp) {
   var completion = new Completion();
   for (var prop in properties) {
     if (prop.indexOf(startProp) === 0) {
-      completion.insert(new Candidate(prop, prop.slice(startProp.length), 0));
+      completion.insert(new Candidate(prop, startProp, 0));
     }
   }
   return completion;

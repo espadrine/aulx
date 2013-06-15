@@ -5,7 +5,7 @@
 //  - candidateFromDisplay: Map from display string to candidate.
 //  - candidates: A list of candidates:
 //    * display: a string of what the user sees.
-//    * postfix: a string of what is added when the user chooses this.
+//    * prefix: a string of what is added when the user chooses this.
 //    * score: a number to grade the candidate.
 //
 // Parameters:
@@ -91,7 +91,7 @@ function completionFromValue(completion, value, matchProp) {
       var tokens = esprima.tokenize(prop);
       if (tokens.length === 1 && tokens[0].type === "Identifier") {
         completion.insert(
-            new Candidate(prop, prop.slice(matchProp.length), -1));
+            new Candidate(prop, matchProp, -1));
       }
     } catch (e) {} // Definitely not a valid property.
   }
