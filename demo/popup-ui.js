@@ -283,7 +283,8 @@ Autocompletion.prototype = {
       this._selectIndex();
 
       // Insert the corresponding entry.
-      this.insert(this._completion.candidates[this._index].postfix);
+      this.insert(this._completion.candidates[this._index].display,
+                  this._completion.candidates[this._index].prefix);
 
     } else {  // We are not yet cycling.
       // FIXME: do we need this?
@@ -314,7 +315,8 @@ Autocompletion.prototype = {
         // that the cursor initially had.
         this._start = this.editor.getCursor();
         this._end = {line: this._start.line, ch: this._start.ch};
-        this.insert(this._completion.candidates[this._index].postfix);
+        this.insert(this._completion.candidates[this._index].display,
+                    this._completion.candidates[this._index].prefix);
 
         // If the popup was already displayed, hide it.
         if (this._completion.candidates.length <= 1) {
@@ -326,13 +328,19 @@ Autocompletion.prototype = {
 
   // Insert a possible autocompletion in the editor.
   //
-  // aText: The text to insert inline.
-  insert: function AC_insert(aText) {
+  // inserted: The text to insert inline.
+  insert: function AC_insert(display, prefix) {
     this._insertingText = true;
-    this.editor.replaceRange(aText, this._start, this._end);
+    var start = {   // FIXME: what if the prefix starts on the line before?
+      line: this._start.line,
+      ch: this._start.ch - prefix.length
+    };
+    this.editor.replaceRange(display, start, this._end);
+
+    var postfix = display.slice(prefix.length);
     var numLines = 0, isol, i = 0;
-    for (; i < aText.length; i++) {
-      if (aText.charCodeAt(i) === 10) {
+    for (; i < postfix.length; i++) {
+      if (postfix.charCodeAt(i) === 10) {
         // Newline
         numLines++;
         isol = i + 1;   // index of start of line.
@@ -340,9 +348,9 @@ Autocompletion.prototype = {
     }
     this._end.line = this._start.line + numLines;
     if (numLines > 0) {
-      this._end.ch = this._start + aText.length - isol;
+      this._end.ch = this._start + postfix.length - isol;
     } else {
-      this._end.ch = this._start.ch + aText.length;
+      this._end.ch = this._start.ch + postfix.length;
     }
   },
 
