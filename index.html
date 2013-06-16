@@ -6,8 +6,10 @@
 html {
   text-align: center;
   font-family: 'Averia Sans Libre', sans-serif;
-  background: url('demo/notebook-bot.jpg') repeat;
-  background-size: 100% auto;
+  background: url('demo/crayon-small.png') repeat 0 0 / 1em 1em,
+              /* Why does Blink require me to put 11px below? */
+              url('demo/hack.png') repeat 0 0 / 11px,
+              #f9eeff;
 }
 body { margin: 0; }
 iframe {
@@ -16,7 +18,8 @@ iframe {
   border-image-width: 4;
   background-color: rgba(255, 255, 255, 0.4);
   background-clip: padding-box;
-  width: 666px;
+  max-width: 666px;
+  width: calc(90% - 24px);
   height: 333px;
   margin: auto;
   padding: 10px;
@@ -26,13 +29,11 @@ header {
   padding: 5px;
   box-sizing: border-box;
   -moz-box-sizing: border-box;
-  background: url('demo/notebook-top.jpg');
-  background-size: 100% auto;
 }
 hgroup {
-  border: 5px solid rgba(188,188,196,0.3);
-  border: 0.4vw solid rgba(188,188,196,0.3);
-  border-image: url('demo/notebook-border.jpg') 12 repeat;
+  border: dashed 3px #aac;
+  border-image: url('demo/crayon.png') 19 stretch;
+  border-image-width: 4;
   background: rgba(255, 255, 255, 0.4);
   width: 50%;
   margin: auto;
