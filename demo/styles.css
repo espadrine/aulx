@@ -1,0 +1,75 @@
+* {
+  padding: 0;
+  margin: 0;
+}
+.CodeMirror, .right {
+  display: inline-block;
+  min-height: 100%;
+  max-height: 100%;
+  position: fixed;
+  transition: background 300ms, font-size 300ms, line-height 300ms, width 300ms;
+}
+.right {
+  right: 0;
+  width: calc(55% - 1px);
+  max-width: 55%;
+  background: rgb(245, 245, 255);
+  border-left: 1px solid rgb(229, 229, 238);
+}
+.fullscreen + .right {
+  width: 0;
+}
+.CodeMirror {
+  left: 0;
+  width: calc(45% - 1px);
+  border-right: 1px solid rgb(229, 229, 238);
+  background: white;
+  font-size: 14px !important;
+}
+.CodeMirror * {
+  font-size: 14px !important;
+}
+.CodeMirror-selected {
+  border-radius: 2px;
+}
+.CodeMirror.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+.CodeMirror .icon.fullscreen {
+  top: 10px;
+  transition: right 250ms;
+  right: 30px;
+  background-image: url(icon-fullscreen.png);
+  background-size: 100% 100%;
+}
+.CodeMirror .icon.fullscreen:hover, .icon.changeTheme:hover {
+    opacity: 1;
+}
+.CodeMirror .icon {
+  width: 18px;
+  height: 18px;
+  z-index: 200000 !important;
+  background-repeat: no-repeat;
+  opacity: 0.5;
+  display: block;
+  position: absolute;
+  transition: all 0.1s ease-out 0s;
+}
+.CodeMirror .icon.changeTheme {
+  top: 10px;
+  right: 60px;
+  background-image: url(icon-changeTheme.png);
+}
+#forkongithub a{background:#268bd2;color:#fff;text-decoration:none;font-family:arial,
+sans-serif;text-align:center;font-weight:bold;padding:5px 40px;font-size:1rem;line-height:2rem;position:relative;transition:0.5s;}#forkongithub
+a:hover{background:#060;color:#fff;}#forkongithub a::before,#forkongithub
+a::after{content:"";width:100%;display:block;position:absolute;top:1px;left:0;height:1px;background:#fff;}#forkongithub
+a::after{bottom:1px;top:auto;}@media screen and (min-width:400px){#forkongithub{position:absolute;display:block;top:0;right:0;width:200px;overflow:hidden;height:200px;}#forkongithub
+a{width:200px;position:absolute;top:60px;right:-60px;transform:rotate(45deg);-webkit-transform:rotate(45deg);box-shadow:4px
+4px 10px rgba(0,0,0,0.8);}}

@@ -55,3 +55,16 @@ bundle('aulx.js', [
 
   'entrance/umd-end.js',
 ]);
+
+// Target environment: AMD / Node.js / plain old browsers.
+//
+bundle('aulx-ui.js', [
+  'entrance/umd-begin-ui.js',
+
+  // UI files.
+  'ui/main.js',
+  'ui/popup.js',
+  'ui/cm.js',
+
+  'entrance/umd-end.js',
+]);
