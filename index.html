@@ -30,28 +30,30 @@ function Stream(item, next) {
 Stream.prototype = {
   // `tail` is the next stream in the list.
   get tail() {
-  if (!this.computed) {
-    this.computed = true;
-    return this.shell = this.generator();
-  } else return this.shell;
+    if (!this.computed) {
+      this.computed = true;
+      return this.shell = this.generator();
+    } else return this.shell;
   },
   at: function(index) {
-  var stream = this;
-  for (var i = index; i > 0; i--) {
-    stream = stream.tail;
-  }
-  return stream.head;
+    var stream = this;
+    for (var i = index; i > 0; i--) {
+      stream = stream.tail;
+    }
+    return stream.head;
   },
   add: function(otherStream) {
-  return new Stream(this.head + otherStream.head, function() {
-    return this.tail.add(otherStream.tail);
-  }.bind(this));
+    return new Stream(this.head + otherStream.head, function() {
+      return this.tail.add(otherStream.tail);
+    }.bind(this));
   }
 };
 
 var fibonacci = new Stream(0, function() {
-    return new Stream(1, function() {
-    return fibonacci.add(fibonacci.tail);});});
+  return new Stream(1, function() {
+    return fibonacci.add(fibonacci.tail);
+  });
+});
 
 console.log('fib(10) = ' + fibonacci.at(10));
     </textarea>
