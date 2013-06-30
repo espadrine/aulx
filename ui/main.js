@@ -100,37 +100,52 @@ AulxUI.prototype = {
   },
 
   // Specific autocompletion-only keys.
-  _onUp: function AUI__onUp(editor) {
+  _onUp: function AUI__onUp() {
     // ↑ key.
     if (this.popup.isOpen()) {
       this.popup.selectPreviousItem();
     }
+    else {
+      this.doDefaultAction("Up");
+    }
   },
-  _onDown: function AUI__onDown(editor) {
+  _onDown: function AUI__onDown() {
     // ↓ key.
     if (this.popup.isOpen()) {
       this.popup.selectNextItem();
     }
+    else {
+      this.doDefaultAction("Down");
+    }
   },
-  _onEsc: function AUI__onEsc(editor) {
+  _onEsc: function AUI__onEsc() {
     // ESC key.
     if (this.popup.isOpen()) {
       this.hideCompletion();
       this.removeCompletion();
     }
+    else {
+      this.doDefaultAction("Esc");
+    }
   },
-  _onTab: function AUI__onTab(editor) {
+  _onTab: function AUI__onTab() {
     // Tab key.
     if (!this.isSomethingSelected() && this.popup.isOpen()) {
       this.popup.inverted ? this.popup.selectPreviousItem()
                           : this.popup.selectNextItem();
     }
+    else {
+      this.doDefaultAction("Tab");
+    }
   },
-  _onShiftTab: function AUI__onShiftTab(editor) {
+  _onShiftTab: function AUI__onShiftTab() {
     // Shift+Tab key.
     if (!this.isSomethingSelected() && this.popup.isOpen()) {
       this.popup.inverted ? this.popup.selectNextItem()
                           : this.popup.selectPreviousItem();
+    }
+    else {
+      this.doDefaultAction("ShiftTab");
     }
   },
 

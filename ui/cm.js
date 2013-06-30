@@ -97,6 +97,22 @@ function AulxUICM(aEditor, aOptions) {
   this.__proto__.getCursorPosition = function() {
     return this.editor.cursorCoords();
   };
+  this.__proto__.doDefaultAction = function(action) {
+    switch(action) {
+      case "Up":
+      case "Down":
+        CodeMirror.commands["goLine" + action](this.editor);
+        break;
+      case "Tab":
+        CodeMirror.commands.defaultTab(this.editor);
+        break;
+      case "ShiftTab":
+        CodeMirror.commands.indentAuto(this.editor);
+    }
+  };
+  this.__proto__.removeCompletion = function() {
+
+  };
 };
 
 exports.CM = AulxUICM;
