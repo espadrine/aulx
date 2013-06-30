@@ -213,7 +213,7 @@ Popup.prototype = {
     }
     var scroll = scrollY || document.documentElement.scrollTop;
     if ((this.position == "above" && y - height - scroll < 0) ||
-        (this.position == "below" && y + height + 20 + scroll > innerHeight)) {
+        (this.position == "below" && y + height + 20 + scroll < innerHeight)) {
       this.panel.style.top = (y + 20  + scroll) +"px";
       this.inverted = (this.position == "above");
     }

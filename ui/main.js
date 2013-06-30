@@ -49,8 +49,8 @@ function AulxUI(aEditor, aOptions) {
     noFocus: true,
     position: "below",
     maxVisibleRows: aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS,
-    onClick: this._onListBoxKeypress,
-    onSelect: this._onListBoxKeypress
+    onClick: this._clickOnOption.bind(this),
+    onSelect: this._clickOnOption.bind(this)
   };
   this.popup = new Popup(this.document, options);
 }
@@ -179,6 +179,7 @@ AulxUI.prototype = {
         e.preventDefault();
         var item = this.popup.getSelectedItem();
         this.insert(item.display.slice(item.prefix.length));
+        this.hideCompletion();
         this.editor.focus();
     }
   },

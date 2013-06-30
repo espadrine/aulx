@@ -61,8 +61,8 @@ function AulxUI(aEditor, aOptions) {
     noFocus: true,
     position: "below",
     maxVisibleRows: aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS,
-    onClick: this._onListBoxKeypress,
-    onSelect: this._onListBoxKeypress
+    onClick: this._clickOnOption.bind(this),
+    onSelect: this._clickOnOption.bind(this)
   };
   this.popup = new Popup(this.document, options);
 }
@@ -191,6 +191,7 @@ AulxUI.prototype = {
         e.preventDefault();
         var item = this.popup.getSelectedItem();
         this.insert(item.display.slice(item.prefix.length));
+        this.hideCompletion();
         this.editor.focus();
     }
   },
@@ -440,7 +441,7 @@ Popup.prototype = {
     }
     var scroll = scrollY || document.documentElement.scrollTop;
     if ((this.position == "above" && y - height - scroll < 0) ||
-        (this.position == "below" && y + height + 20 + scroll > innerHeight)) {
+        (this.position == "below" && y + height + 20 + scroll < innerHeight)) {
       this.panel.style.top = (y + 20  + scroll) +"px";
       this.inverted = (this.position == "above");
     }
