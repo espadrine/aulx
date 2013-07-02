@@ -128,6 +128,8 @@ AulxUI.prototype = {
     // ↑ key.
     if (this.popup.isOpen()) {
       this.popup.selectPreviousItem();
+      this._UpDown = true;
+      this._insertedOnce = false;
     }
     else {
       this.doDefaultAction("Up");
@@ -137,6 +139,8 @@ AulxUI.prototype = {
     // ↓ key.
     if (this.popup.isOpen()) {
       this.popup.selectNextItem();
+      this._UpDown = true;
+      this._insertedOnce = false;
     }
     else {
       this.doDefaultAction("Down");
@@ -155,6 +159,7 @@ AulxUI.prototype = {
   _onTab: function AUI__onTab() {
     // Tab key.
     if (!this._insertedOnce) {
+      this._UpDown = false;
       this.insert(this.popup.getSelectedItem());
       if (this.popup.itemCount() == 1) {
         this.hidePopup();
@@ -162,6 +167,7 @@ AulxUI.prototype = {
       return;
     }
     if (!this.isSomethingSelected() && this.popup.isOpen()) {
+      this._UpDown = false;
       this.popup.inverted ? this.popup.selectPreviousItem()
                           : this.popup.selectNextItem();
       this.insert(this.popup.getSelectedItem());
@@ -224,6 +230,8 @@ AulxUI.prototype = {
     this.popup.hidePopup();
     this._completion = null;
     this._insertedOnce = false;
+    this._start = null;
+    this._UpDown = false;
   },
 
   // Insert a possible autocompletion in the editor.
@@ -231,7 +239,7 @@ AulxUI.prototype = {
   // aItem: The completion item to insert inline.
   insert: function AUI_insert(aItem) {
     this._insertingText = true;
-    if (!this._insertedOnce) {
+    if (!this._insertedOnce && !this._start) {
       var temp = this.getCursor();
       this._start = {
         line: temp.line,
@@ -240,7 +248,7 @@ AulxUI.prototype = {
       this._end = {line: temp.line, ch: temp.ch};
     }
     this.replaceRange(aItem.display, this._start, this._end);
-    this._insertedOnce = true;
+    this._insertedOnce = true && !this._UpDown;
     var numLines = 0, isol, i = 0;
     for (; i < aItem.display.length; i++) {
       if (aItem.display.charCodeAt(i) === 10) {
