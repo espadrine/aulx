@@ -42,6 +42,14 @@ function AulxUI(aEditor, aOptions) {
       parse: esprima.parse
     });
   }
+  // Bind!
+  this._onUp = this._onUp.bind(this);
+  this._onDown = this._onDown.bind(this);
+  this._onEsc = this._onEsc.bind(this);
+  this._onTab = this._onTab.bind(this);
+  this._onShiftTab = this._onShiftTab.bind(this);
+  this._onEditorKeyPress = this._onEditorKeyPress.bind(this);
+  this._onEditorSelection = this._onEditorSelection.bind(this);
   // Create the popup.
   var options = {
     fontSize: 14,
@@ -49,8 +57,8 @@ function AulxUI(aEditor, aOptions) {
     noFocus: true,
     position: "below",
     maxVisibleRows: aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS,
-    onClick: this._clickOnOption.bind(this),
-    onSelect: this._clickOnOption.bind(this)
+    onClick: this._completionClick.bind(this),
+    onSelect: this._completionClick.bind(this)
   };
   this.popup = new Popup(this.document, options);
 }
@@ -65,8 +73,11 @@ AulxUI.prototype = {
   // While in the process of autocompleting, we are inserting text (this
   // variable is used to avoid race conditions.
   _insertingText: 0,
+  _insertedOnce: false,
   _completion: null,
   _line: 0,
+  _start: null,
+  _end: null,
 
   _delayedPopup: null,
 
@@ -87,7 +98,7 @@ AulxUI.prototype = {
     // We don't complete on a selection of text.
     // We don't show the completion popup without any completion.
     if (this.isSomethingSelected() || completions.length < 1) {
-      this.hideCompletion();
+      this.hidePopup();
       return;
     }
 
@@ -96,6 +107,7 @@ AulxUI.prototype = {
 
     // Get the coordinates to open the popup at
     var pos = this.getCursorPosition();
+    pos.left -= (completions[0].prefix.length * (this.getCharWidth()|0) + 4);
     this.popup.openPopup(pos.left, pos.top);
   },
 
@@ -121,8 +133,8 @@ AulxUI.prototype = {
   _onEsc: function AUI__onEsc() {
     // ESC key.
     if (this.popup.isOpen()) {
-      this.hideCompletion();
       this.removeCompletion();
+      this.hidePopup();
     }
     else {
       this.doDefaultAction("Esc");
@@ -130,9 +142,17 @@ AulxUI.prototype = {
   },
   _onTab: function AUI__onTab() {
     // Tab key.
+    if (!this._insertedOnce) {
+      this.insert(this.popup.getSelectedItem());
+      if (this.popup.itemCount() == 1) {
+        this.hidePopup();
+      }
+      return;
+    }
     if (!this.isSomethingSelected() && this.popup.isOpen()) {
       this.popup.inverted ? this.popup.selectPreviousItem()
                           : this.popup.selectNextItem();
+      this.insert(this.popup.getSelectedItem());
     }
     else {
       this.doDefaultAction("Tab");
@@ -143,6 +163,10 @@ AulxUI.prototype = {
     if (!this.isSomethingSelected() && this.popup.isOpen()) {
       this.popup.inverted ? this.popup.selectNextItem()
                           : this.popup.selectPreviousItem();
+      this.insert(this.popup.getSelectedItem());
+      if (this.popup.itemCount() == 1) {
+        this.hidePopup();
+      }
     }
     else {
       this.doDefaultAction("ShiftTab");
@@ -151,7 +175,7 @@ AulxUI.prototype = {
 
   _onEditorKeyPress: function AUI__onEditorKeyPress(aEvent) {
     if (!this._insertingText) {
-      this.hideCompletion();
+      this.hidePopup();
       clearTimeout(this._delayedPopup);
       this._delayedPopup = setTimeout(this.displayCompletion.bind(this),
                                       DELAYED_POPUP);
@@ -166,39 +190,48 @@ AulxUI.prototype = {
     if (this._line !== lineno) {
       this.aulxJS.fireStaticAnalysis(this.getValue(), this.getCursor());
       this._line = lineno;
-      this.hideCompletion();
+      this.hidePopup();
     }
   },
 
-  _clickOnOption: function AUI__clickOnOption(e) {
+  _completionClick: function AUI__completionClick(e) {
     switch(e.keyCode || e.button) {
       case 14: // ENTER
       case 13: // RETURN
       case 0: // left mouse button
         e.stopPropagation();
         e.preventDefault();
-        var item = this.popup.getSelectedItem();
-        this.insert(item.display.slice(item.prefix.length));
-        this.hideCompletion();
+        this.insert(this.popup.getSelectedItem());
+        this.hidePopup();
         this.editor.focus();
     }
   },
 
   // Make the completion popup invisible.
-  hideCompletion: function AUI_hideCompletion() {
+  hidePopup: function AUI_hidePopup() {
     this.popup.hidePopup();
     this._completion = null;
+    this._insertedOnce = false;
   },
 
   // Insert a possible autocompletion in the editor.
   //
-  // aText: The text to insert inline.
-  insert: function AUI_insert(aText) {return;
+  // aItem: The completion item to insert inline.
+  insert: function AUI_insert(aItem) {
     this._insertingText = true;
-    this.editor.replaceRange(aText, this._start, this._end);
+    if (!this._insertedOnce) {
+      var temp = this.getCursor();
+      this._start = {
+        line: temp.line,
+        ch: Math.max(temp.ch - aItem.prefix.length, 0)
+      };
+      this._end = {line: temp.line, ch: temp.ch};
+    }
+    this.replaceRange(aItem.display, this._start, this._end);
+    this._insertedOnce = true;
     var numLines = 0, isol, i = 0;
-    for (; i < aText.length; i++) {
-      if (aText.charCodeAt(i) === 10) {
+    for (; i < aItem.display.length; i++) {
+      if (aItem.display.charCodeAt(i) === 10) {
         // Newline
         numLines++;
         isol = i + 1;   // index of start of line.
@@ -206,11 +239,21 @@ AulxUI.prototype = {
     }
     this._end.line = this._start.line + numLines;
     if (numLines > 0) {
-      this._end.ch = this._start + aText.length - isol;
-    } else {
-      this._end.ch = this._start.ch + aText.length;
+      this._end.ch = this._start.ch + aItem.display.length - isol;
+    }
+    else {
+      this._end.ch = this._start.ch + aItem.display.length;
     }
   },
+
+  removeCompletion: function AUI_removeCompletion() {
+    if (!this._insertedOnce) {
+      return;
+    }
+    var item = this.popup.getSelectedItem();
+    this.insert({display: item.prefix, prefix: item.prefix});
+    this._insertedOnce = false;
+  }
 };
 
 exports.AulxUI = AulxUI;

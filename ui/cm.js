@@ -36,7 +36,7 @@ function AulxUICM(aEditor, aOptions) {
 
   if (!aOptions.noToggleTheme) {
     var theme = "default";
-    function switchTheme(cm) {
+    var switchTheme = function(cm) {
       if (theme == "default") {
         aEditor.setOption("theme", theme = (aOptions.toggleTheme ||
                                             "solarized dark"));
@@ -47,8 +47,9 @@ function AulxUICM(aEditor, aOptions) {
       setTimeout(function() {
         aEditor.refresh();
         aEditor.focus();
-      }, 400);
-    };
+        this._charWidth = this.getCursorPosition().left/this.getCursor().ch;
+      }.bind(this), 600);
+    }.bind(this);
     aEditor.addKeyMap({
       F10: switchTheme
     });
@@ -66,15 +67,10 @@ function AulxUICM(aEditor, aOptions) {
   this.__proto__ = new AulxUI(aEditor);
 
   // The following will fire the autocompletion system on each character!
-  this.editor.on('cursorActivity', this._onEditorSelection.bind(this));
-  this.editor.on('change', this._onEditorKeyPress.bind(this));
+  this.editor.on('cursorActivity', this._onEditorSelection);
+  this.editor.on('change', this._onEditorKeyPress);
 
   // Those will become event listeners.
-  this._onUp = this._onUp.bind(this);
-  this._onDown = this._onDown.bind(this);
-  this._onEsc = this._onEsc.bind(this);
-  this._onTab = this._onTab.bind(this);
-  this._onShiftTab = this._onShiftTab.bind(this);
   this.editor.addKeyMap({
     Up: this._onUp,
     Down: this._onDown,
@@ -87,6 +83,12 @@ function AulxUICM(aEditor, aOptions) {
   // Overriding methods derived from AulxUI
   this.__proto__.getCursor = function() {
     return this.editor.getCursor();
+  };
+  this.__proto__.getCharWidth = function() {
+    if (!this._charWidth) {
+      this._charWidth = this.getCursorPosition().left/this.getCursor().ch;
+    }
+    return this._charWidth;
   };
   this.__proto__.getValue = function() {
     return this.editor.getValue();
@@ -110,8 +112,8 @@ function AulxUICM(aEditor, aOptions) {
         CodeMirror.commands.indentAuto(this.editor);
     }
   };
-  this.__proto__.removeCompletion = function() {
-
+  this.__proto__.replaceRange = function(aText, aStart, aEnd) {
+    this.editor.replaceRange(aText, aStart, aEnd);
   };
 };
 

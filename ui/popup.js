@@ -110,19 +110,19 @@ var Popup = function Popup(aDocument, aOptions) {
   var styles = function() {/*!
 #selectorsPopup {
   background: white;
-  box-shadow: 0 0 2px 0 #666;
+  box-shadow: 0 0 2px 0 rgba(96,96,96,0.6);
   border: 2px solid #404040;
   position: absolute;
   z-index: 99999;
   overflow: hidden;
-  display: none;
+  visibility: collapse;
   min-width: 150px;
 }
 #selectorsPopup pre {
   margin: 0 !important;
 }
 #selectorsPopup label {
-  color: #666;
+  color: #444;
   display: inline-block;
   display: flex;
   width: calc(100% - 10px);
@@ -131,16 +131,17 @@ var Popup = function Popup(aDocument, aOptions) {
   font-family: %FONT%;
   font-size: %FONTSIZE%px;
 }
-#selectorsPopup label > b {
+#selectorsPopup label > pre {
   color: #000;
-  font-weight: normal;
   font-family: inherit;
   font-size: inherit;
+  font-weight:600;
 }
 #selectorsPopup label.pre:before {
   color: #000;
   content: attr(data-pre);
   display: inline-block;
+  font-weight: 600;
 }
 #selectorsPopup label.count:after {
   color: #000;
@@ -203,7 +204,6 @@ Popup.prototype = {
    * @param y {Number} The y coordinate of the top left point of the input box.
    */
   openPopup: function(x, y) {
-    this.panel.style.display = "block";
     // If position is above, the (x, y) point will be the bottom left point of
     // the popup, unless there is not enough space to show the popup above.
     var height = 0;
@@ -225,6 +225,7 @@ Popup.prototype = {
       this.reversePopup();
     }
     this.panel.style.left = (x - 3) +"px";
+    this.panel.style.visibility = "visible";
     this._open = true;
 
     if (this.autoSelect) {
@@ -237,7 +238,7 @@ Popup.prototype = {
    */
   hidePopup: function() {
     this._open = false;
-    this.panel.style.display = "none";
+    this.panel.style.visibility = "collapse";
   },
 
   /**
@@ -375,7 +376,6 @@ Popup.prototype = {
    * Clears all the items from the autocomplete list.
    */
   clearItems: function() {
-    this.panel.innerHTML = "";
     this.selectedIndex = -1;
     this._cachedString = "";
     this.values = [];
@@ -433,7 +433,7 @@ Popup.prototype = {
     }
     str += " for='" + label + "'>" + (fuzzy ?
            (h = {}, label.replace(new RegExp("[" + pre + "]", "g"), function(m) {
-             return !h[m] ? (h[m] = 1, "<b>" + m + "</b>") : m;
+             return !h[m] ? (h[m] = 1, "<pre>" + m + "</pre>") : m;
            })) : label.slice((pre || "").length)) + "</label></pre>";
     this._cachedString = str;
     this.values.push(aItem);

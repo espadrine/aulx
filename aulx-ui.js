@@ -54,6 +54,14 @@ function AulxUI(aEditor, aOptions) {
       parse: esprima.parse
     });
   }
+  // Bind!
+  this._onUp = this._onUp.bind(this);
+  this._onDown = this._onDown.bind(this);
+  this._onEsc = this._onEsc.bind(this);
+  this._onTab = this._onTab.bind(this);
+  this._onShiftTab = this._onShiftTab.bind(this);
+  this._onEditorKeyPress = this._onEditorKeyPress.bind(this);
+  this._onEditorSelection = this._onEditorSelection.bind(this);
   // Create the popup.
   var options = {
     fontSize: 14,
@@ -61,8 +69,8 @@ function AulxUI(aEditor, aOptions) {
     noFocus: true,
     position: "below",
     maxVisibleRows: aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS,
-    onClick: this._clickOnOption.bind(this),
-    onSelect: this._clickOnOption.bind(this)
+    onClick: this._completionClick.bind(this),
+    onSelect: this._completionClick.bind(this)
   };
   this.popup = new Popup(this.document, options);
 }
@@ -77,8 +85,11 @@ AulxUI.prototype = {
   // While in the process of autocompleting, we are inserting text (this
   // variable is used to avoid race conditions.
   _insertingText: 0,
+  _insertedOnce: false,
   _completion: null,
   _line: 0,
+  _start: null,
+  _end: null,
 
   _delayedPopup: null,
 
@@ -99,7 +110,7 @@ AulxUI.prototype = {
     // We don't complete on a selection of text.
     // We don't show the completion popup without any completion.
     if (this.isSomethingSelected() || completions.length < 1) {
-      this.hideCompletion();
+      this.hidePopup();
       return;
     }
 
@@ -108,6 +119,7 @@ AulxUI.prototype = {
 
     // Get the coordinates to open the popup at
     var pos = this.getCursorPosition();
+    pos.left -= (completions[0].prefix.length * (this.getCharWidth()|0) + 4);
     this.popup.openPopup(pos.left, pos.top);
   },
 
@@ -133,8 +145,8 @@ AulxUI.prototype = {
   _onEsc: function AUI__onEsc() {
     // ESC key.
     if (this.popup.isOpen()) {
-      this.hideCompletion();
       this.removeCompletion();
+      this.hidePopup();
     }
     else {
       this.doDefaultAction("Esc");
@@ -142,9 +154,17 @@ AulxUI.prototype = {
   },
   _onTab: function AUI__onTab() {
     // Tab key.
+    if (!this._insertedOnce) {
+      this.insert(this.popup.getSelectedItem());
+      if (this.popup.itemCount() == 1) {
+        this.hidePopup();
+      }
+      return;
+    }
     if (!this.isSomethingSelected() && this.popup.isOpen()) {
       this.popup.inverted ? this.popup.selectPreviousItem()
                           : this.popup.selectNextItem();
+      this.insert(this.popup.getSelectedItem());
     }
     else {
       this.doDefaultAction("Tab");
@@ -155,6 +175,10 @@ AulxUI.prototype = {
     if (!this.isSomethingSelected() && this.popup.isOpen()) {
       this.popup.inverted ? this.popup.selectNextItem()
                           : this.popup.selectPreviousItem();
+      this.insert(this.popup.getSelectedItem());
+      if (this.popup.itemCount() == 1) {
+        this.hidePopup();
+      }
     }
     else {
       this.doDefaultAction("ShiftTab");
@@ -163,7 +187,7 @@ AulxUI.prototype = {
 
   _onEditorKeyPress: function AUI__onEditorKeyPress(aEvent) {
     if (!this._insertingText) {
-      this.hideCompletion();
+      this.hidePopup();
       clearTimeout(this._delayedPopup);
       this._delayedPopup = setTimeout(this.displayCompletion.bind(this),
                                       DELAYED_POPUP);
@@ -178,39 +202,48 @@ AulxUI.prototype = {
     if (this._line !== lineno) {
       this.aulxJS.fireStaticAnalysis(this.getValue(), this.getCursor());
       this._line = lineno;
-      this.hideCompletion();
+      this.hidePopup();
     }
   },
 
-  _clickOnOption: function AUI__clickOnOption(e) {
+  _completionClick: function AUI__completionClick(e) {
     switch(e.keyCode || e.button) {
       case 14: // ENTER
       case 13: // RETURN
       case 0: // left mouse button
         e.stopPropagation();
         e.preventDefault();
-        var item = this.popup.getSelectedItem();
-        this.insert(item.display.slice(item.prefix.length));
-        this.hideCompletion();
+        this.insert(this.popup.getSelectedItem());
+        this.hidePopup();
         this.editor.focus();
     }
   },
 
   // Make the completion popup invisible.
-  hideCompletion: function AUI_hideCompletion() {
+  hidePopup: function AUI_hidePopup() {
     this.popup.hidePopup();
     this._completion = null;
+    this._insertedOnce = false;
   },
 
   // Insert a possible autocompletion in the editor.
   //
-  // aText: The text to insert inline.
-  insert: function AUI_insert(aText) {return;
+  // aItem: The completion item to insert inline.
+  insert: function AUI_insert(aItem) {
     this._insertingText = true;
-    this.editor.replaceRange(aText, this._start, this._end);
+    if (!this._insertedOnce) {
+      var temp = this.getCursor();
+      this._start = {
+        line: temp.line,
+        ch: Math.max(temp.ch - aItem.prefix.length, 0)
+      };
+      this._end = {line: temp.line, ch: temp.ch};
+    }
+    this.replaceRange(aItem.display, this._start, this._end);
+    this._insertedOnce = true;
     var numLines = 0, isol, i = 0;
-    for (; i < aText.length; i++) {
-      if (aText.charCodeAt(i) === 10) {
+    for (; i < aItem.display.length; i++) {
+      if (aItem.display.charCodeAt(i) === 10) {
         // Newline
         numLines++;
         isol = i + 1;   // index of start of line.
@@ -218,11 +251,21 @@ AulxUI.prototype = {
     }
     this._end.line = this._start.line + numLines;
     if (numLines > 0) {
-      this._end.ch = this._start + aText.length - isol;
-    } else {
-      this._end.ch = this._start.ch + aText.length;
+      this._end.ch = this._start.ch + aItem.display.length - isol;
+    }
+    else {
+      this._end.ch = this._start.ch + aItem.display.length;
     }
   },
+
+  removeCompletion: function AUI_removeCompletion() {
+    if (!this._insertedOnce) {
+      return;
+    }
+    var item = this.popup.getSelectedItem();
+    this.insert({display: item.prefix, prefix: item.prefix});
+    this._insertedOnce = false;
+  }
 };
 
 exports.AulxUI = AulxUI;
@@ -338,19 +381,19 @@ var Popup = function Popup(aDocument, aOptions) {
   var styles = function() {/*!
 #selectorsPopup {
   background: white;
-  box-shadow: 0 0 2px 0 #666;
+  box-shadow: 0 0 2px 0 rgba(96,96,96,0.6);
   border: 2px solid #404040;
   position: absolute;
   z-index: 99999;
   overflow: hidden;
-  display: none;
+  visibility: collapse;
   min-width: 150px;
 }
 #selectorsPopup pre {
   margin: 0 !important;
 }
 #selectorsPopup label {
-  color: #666;
+  color: #444;
   display: inline-block;
   display: flex;
   width: calc(100% - 10px);
@@ -359,16 +402,17 @@ var Popup = function Popup(aDocument, aOptions) {
   font-family: %FONT%;
   font-size: %FONTSIZE%px;
 }
-#selectorsPopup label > b {
+#selectorsPopup label > pre {
   color: #000;
-  font-weight: normal;
   font-family: inherit;
   font-size: inherit;
+  font-weight:600;
 }
 #selectorsPopup label.pre:before {
   color: #000;
   content: attr(data-pre);
   display: inline-block;
+  font-weight: 600;
 }
 #selectorsPopup label.count:after {
   color: #000;
@@ -431,7 +475,6 @@ Popup.prototype = {
    * @param y {Number} The y coordinate of the top left point of the input box.
    */
   openPopup: function(x, y) {
-    this.panel.style.display = "block";
     // If position is above, the (x, y) point will be the bottom left point of
     // the popup, unless there is not enough space to show the popup above.
     var height = 0;
@@ -453,6 +496,7 @@ Popup.prototype = {
       this.reversePopup();
     }
     this.panel.style.left = (x - 3) +"px";
+    this.panel.style.visibility = "visible";
     this._open = true;
 
     if (this.autoSelect) {
@@ -465,7 +509,7 @@ Popup.prototype = {
    */
   hidePopup: function() {
     this._open = false;
-    this.panel.style.display = "none";
+    this.panel.style.visibility = "collapse";
   },
 
   /**
@@ -603,7 +647,6 @@ Popup.prototype = {
    * Clears all the items from the autocomplete list.
    */
   clearItems: function() {
-    this.panel.innerHTML = "";
     this.selectedIndex = -1;
     this._cachedString = "";
     this.values = [];
@@ -661,7 +704,7 @@ Popup.prototype = {
     }
     str += " for='" + label + "'>" + (fuzzy ?
            (h = {}, label.replace(new RegExp("[" + pre + "]", "g"), function(m) {
-             return !h[m] ? (h[m] = 1, "<b>" + m + "</b>") : m;
+             return !h[m] ? (h[m] = 1, "<pre>" + m + "</pre>") : m;
            })) : label.slice((pre || "").length)) + "</label></pre>";
     this._cachedString = str;
     this.values.push(aItem);
@@ -824,7 +867,7 @@ function AulxUICM(aEditor, aOptions) {
 
   if (!aOptions.noToggleTheme) {
     var theme = "default";
-    function switchTheme(cm) {
+    var switchTheme = function(cm) {
       if (theme == "default") {
         aEditor.setOption("theme", theme = (aOptions.toggleTheme ||
                                             "solarized dark"));
@@ -835,8 +878,9 @@ function AulxUICM(aEditor, aOptions) {
       setTimeout(function() {
         aEditor.refresh();
         aEditor.focus();
-      }, 400);
-    };
+        this._charWidth = this.getCursorPosition().left/this.getCursor().ch;
+      }.bind(this), 600);
+    }.bind(this);
     aEditor.addKeyMap({
       F10: switchTheme
     });
@@ -854,15 +898,10 @@ function AulxUICM(aEditor, aOptions) {
   this.__proto__ = new AulxUI(aEditor);
 
   // The following will fire the autocompletion system on each character!
-  this.editor.on('cursorActivity', this._onEditorSelection.bind(this));
-  this.editor.on('change', this._onEditorKeyPress.bind(this));
+  this.editor.on('cursorActivity', this._onEditorSelection);
+  this.editor.on('change', this._onEditorKeyPress);
 
   // Those will become event listeners.
-  this._onUp = this._onUp.bind(this);
-  this._onDown = this._onDown.bind(this);
-  this._onEsc = this._onEsc.bind(this);
-  this._onTab = this._onTab.bind(this);
-  this._onShiftTab = this._onShiftTab.bind(this);
   this.editor.addKeyMap({
     Up: this._onUp,
     Down: this._onDown,
@@ -875,6 +914,12 @@ function AulxUICM(aEditor, aOptions) {
   // Overriding methods derived from AulxUI
   this.__proto__.getCursor = function() {
     return this.editor.getCursor();
+  };
+  this.__proto__.getCharWidth = function() {
+    if (!this._charWidth) {
+      this._charWidth = this.getCursorPosition().left/this.getCursor().ch;
+    }
+    return this._charWidth;
   };
   this.__proto__.getValue = function() {
     return this.editor.getValue();
@@ -898,8 +943,8 @@ function AulxUICM(aEditor, aOptions) {
         CodeMirror.commands.indentAuto(this.editor);
     }
   };
-  this.__proto__.removeCompletion = function() {
-
+  this.__proto__.replaceRange = function(aText, aStart, aEnd) {
+    this.editor.replaceRange(aText, aStart, aEnd);
   };
 };
 

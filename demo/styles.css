@@ -9,6 +9,9 @@
   position: fixed;
   transition: background 300ms, font-size 300ms, line-height 300ms, width 300ms;
 }
+.CodeMirror * {
+  text-shadow: none !important;
+}
 .right {
   right: 0;
   width: calc(55% - 1px);
