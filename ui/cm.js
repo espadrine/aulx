@@ -72,8 +72,8 @@ function AulxUICM(aEditor, aOptions) {
 
   // Those will become event listeners.
   this.editor.addKeyMap({
-    Up: this._onUp,
-    Down: this._onDown,
+    Left: this._onLeft,
+    Right: this._onRight,
     Tab: this._onTab,
     'Shift-Tab': this._onShiftTab,
     Esc: this._onEsc,
@@ -104,6 +104,10 @@ function AulxUICM(aEditor, aOptions) {
       case "Up":
       case "Down":
         CodeMirror.commands["goLine" + action](this.editor);
+        break;
+      case "Left":
+      case "Right":
+        CodeMirror.commands["goChar" + action](this.editor);
         break;
       case "Tab":
         CodeMirror.commands.defaultTab(this.editor);

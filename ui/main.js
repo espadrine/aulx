@@ -45,6 +45,8 @@ function AulxUI(aEditor, aOptions) {
   // Bind!
   this._onUp = this._onUp.bind(this);
   this._onDown = this._onDown.bind(this);
+  this._onLeft = this._onLeft.bind(this);
+  this._onRight = this._onRight.bind(this);
   this._onEsc = this._onEsc.bind(this);
   this._onTab = this._onTab.bind(this);
   this._onShiftTab = this._onShiftTab.bind(this);
@@ -134,6 +136,16 @@ AulxUI.prototype = {
       this.doDefaultAction("Down");
     }
   },
+  _onLeft: function AUI__onLeft() {
+    // ← key.
+    this.hidePopup();
+    this.doDefaultAction("Left");
+  },
+  _onRight: function AUI__onRight() {
+    // → key.
+    this.hidePopup();
+    this.doDefaultAction("Right");
+  },
   _onEsc: function AUI__onEsc() {
     // ESC key.
     if (this.popup.isOpen()) {
@@ -146,7 +158,7 @@ AulxUI.prototype = {
   },
   _onTab: function AUI__onTab() {
     // Tab key.
-    if (!this._insertedOnce) {
+    if (!this._insertedOnce && this.popup.isOpen()) {
       this._UpDown = false;
       this.insert(this.popup.getSelectedItem());
       if (this.popup.itemCount() == 1) {
