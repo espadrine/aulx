@@ -96,16 +96,18 @@ aulx.css(cssSource, {line:0, ch:11});
 
 Done:
 
-- JS keyword autocompletion,
-- JS static analysis: a simple algorithm for autocompletion,
-- JS Static type inference,
-- JS dynamic analysis,
-- Structured and scalable way to create the frontend userinterface,
-- CSS property autocompletion.
+- JS keyword autocompletion
+- JS static analysis: a simple algorithm for autocompletion
+- JS Static type inference
+- JS dynamic analysis
+- Structured and scalable way to create the frontend userinterface
+- CodeMirror support with JS completion
+- CSS property autocompletion
 
 To do:
 
-- HTML (including inlined CSS and JS autocompletion),
+- HTML (including inlined CSS and JS autocompletion)
+- CodeMirror CSS support and other text editors as well
 - CoffeeScript, SASS, … We can go crazy with this!
 
 
