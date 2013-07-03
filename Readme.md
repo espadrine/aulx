@@ -7,8 +7,9 @@ Let's have the best JS, CSS, HTML autocompletion ever!
 
 ## Try it
 
-The `aulx.js` file contains the whole project. It is a concatenation of many
-other JS files, although it isn't minified.
+### Completion in Node or Browser
+The `aulx.js` file contains the backend of whole project. It is a concatenation
+of many other JS files, although it isn't minified.
 
 You can try to require it in node.
 
@@ -16,6 +17,22 @@ You can try to require it in node.
 var aulx = require('aulx');
 var source = 'var foo; fo';
 aulx.js(source, {line:0, ch:11});
+```
+
+### User interface in Browser
+The `aulx-ui.js` file contains the user interface part of project. It only
+supports CodeMirror right now, but more is soon to follow :).
+
+Here is a snippet to add autocompelte support to any CodeMirror editor.
+
+You can try to require it in node.
+
+```javascript
+var editor = CodeMirror.fromTextArea(idOfTextbox);
+var aulxui = new AulxUI.CM(editor);
+// or simply ...
+new AulxUI.CM(idOfTextbox);
+// And that's it. Your editor will automagically get JS autocompletion.
 ```
 
 ## Interface
@@ -83,6 +100,7 @@ Done:
 - JS static analysis: a simple algorithm for autocompletion,
 - JS Static type inference,
 - JS dynamic analysis,
+- Structured and scalable way to create the frontend userinterface,
 - CSS property autocompletion.
 
 To do:

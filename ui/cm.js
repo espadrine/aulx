@@ -1,10 +1,12 @@
-//
-//
+// Code mirror specific implementation of AulxUI.
+// We just need to inherit AulxUI object like ```this.__proto__ = new AulxUI()```
+// and override the CM specific methods. That's all folks.
 function AulxUICM(aEditor, aOptions) {
 
   aOptions = aOptions || {};
 
   if (!aEditor) {
+    // No CodeMirror editor instance passed (or non-existant instance passed).
     console.error("No CodeMirror object or textarea string passed to AulxUI CM");
     return;
   }
@@ -14,6 +16,7 @@ function AulxUICM(aEditor, aOptions) {
   }
 
   if (!aOptions.noFullscreen) {
+    // Add a fullscreen button and shortcut
     function fullscreen(cm) {
       var wrapper = aEditor.getWrapperElement();
       wrapper.classList.toggle("fullscreen");
@@ -35,6 +38,7 @@ function AulxUICM(aEditor, aOptions) {
   }
 
   if (!aOptions.noToggleTheme) {
+    // Add a theme toggle button and shortcut
     var theme = "default";
     var switchTheme = function(cm) {
       if (theme == "default") {
@@ -99,6 +103,9 @@ function AulxUICM(aEditor, aOptions) {
   this.__proto__.getCursorPosition = function() {
     return this.editor.cursorCoords();
   };
+  this.__proto__.replaceRange = function(aText, aStart, aEnd) {
+    this.editor.replaceRange(aText, aStart, aEnd);
+  };
   this.__proto__.doDefaultAction = function(action) {
     switch(action) {
       case "Up":
@@ -116,9 +123,7 @@ function AulxUICM(aEditor, aOptions) {
         CodeMirror.commands.indentAuto(this.editor);
     }
   };
-  this.__proto__.replaceRange = function(aText, aStart, aEnd) {
-    this.editor.replaceRange(aText, aStart, aEnd);
-  };
 };
 
+// Expose it to outside workd as AulxUI.CM constructor
 exports.CM = AulxUICM;

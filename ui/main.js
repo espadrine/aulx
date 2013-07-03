@@ -12,7 +12,9 @@ var NUM_VISIBLE_COMPLETIONS = 10;
 var DELAYED_POPUP = 0;
 
 // AulxUI object.
-// This constructor creates the necessary DOM popup.
+// This constructor handles the popup and creates the necessary methods so that
+// other objects can inherit this object to create text editor specific
+// implementations.
 //
 // Parameters:
 // - aEditor: The Source Editor instance to target.
@@ -37,6 +39,8 @@ function AulxUI(aEditor, aOptions) {
     });
   }
   else {
+    // If parser is not available somehow, fallback to sync parsing version of
+    // Aulx.JS()
     this.aulxJS = new Aulx.JS({
       global: global,
       parse: esprima.parse
@@ -58,6 +62,7 @@ function AulxUI(aEditor, aOptions) {
     autoSelect: true,
     noFocus: true,
     position: "below",
+    className: aOptions.cssClass,
     maxVisibleRows: aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS,
     onClick: this._completionClick.bind(this),
     onSelect: this._completionClick.bind(this)
@@ -75,7 +80,10 @@ AulxUI.prototype = {
   // While in the process of autocompleting, we are inserting text (this
   // variable is used to avoid race conditions.
   _insertingText: 0,
+  // This lets us know if we should cycle on tab press or only insert the first
+  // time.
   _insertedOnce: false,
+
   _completion: null,
   _line: 0,
   _start: null,
@@ -88,8 +96,6 @@ AulxUI.prototype = {
   },
 
   // Show the completions that are asked for.
-  // This function assumes there exists a
-  // popup (see function createpopup()).
   displayCompletion: function AUI_displayCompletion() {
     if (this._completion == null) {
       this.runCompleters();
@@ -237,6 +243,12 @@ AulxUI.prototype = {
   // Insert a possible autocompletion in the editor.
   //
   // aItem: The completion item to insert inline.
+  // Should be in the following format:
+  //   {
+  //     display: // the full string that is being inserted
+  //     prefix:  // the initial part of text which will be replaced with
+  //              // the display string.
+  //   }
   insert: function AUI_insert(aItem) {
     this._insertingText = true;
     if (!this._insertedOnce && !this._start) {
@@ -266,6 +278,8 @@ AulxUI.prototype = {
     }
   },
 
+  // Remove the inserted completion object and stores it to originally placed
+  // text.
   removeCompletion: function AUI_removeCompletion() {
     if (!this._insertedOnce) {
       return;
