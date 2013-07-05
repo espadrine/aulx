@@ -7,7 +7,7 @@ Let's have the best JS, CSS, HTML autocompletion ever!
 
 ## Try it
 
-### Completion in Node or Browser
+### Node
 The `aulx.js` file contains the backend of whole project. It is a concatenation
 of many other JS files, although it isn't minified.
 
@@ -19,20 +19,16 @@ var source = 'var foo; fo';
 aulx.js(source, {line:0, ch:11});
 ```
 
-### User interface in Browser
+### Browser (User Interface)
 The `aulx-ui.js` file contains the user interface part of project. It only
-supports CodeMirror right now, but more is soon to follow :).
-
-Here is a snippet to add autocompelte support to any CodeMirror editor.
-
-You can try to require it in node.
+supports CodeMirror right now, but more will come ☺.
 
 ```javascript
 var editor = CodeMirror.fromTextArea(idOfTextbox);
 var aulxui = new AulxUI.CM(editor);
 // or simply ...
 new AulxUI.CM(idOfTextbox);
-// And that's it. Your editor will automagically get JS autocompletion.
+// And that's it. Your editor now features JS autocompletion.
 ```
 
 ## Interface
@@ -142,8 +138,8 @@ or, for each completer:
 
 ----
 
-*Baked by Thaddée Tyl
-<br>Grilled by Girish Sharma*
+*Baked by Thaddée Tyl  
+Grilled by Girish Sharma*
 
 This work is licensed under the Creative Commons Attribution 3.0 Unported
 License. To view a copy of this license, visit

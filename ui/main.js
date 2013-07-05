@@ -18,6 +18,7 @@ var DELAYED_POPUP = 0;
 //
 // Parameters:
 // - aEditor: The Source Editor instance to target.
+//   It should have a `.focus()` method.
 // - aOptions: Properties for tuning certain defaults:
 //   - numVisibleCompletions (defaults to NUM_VISIBLE_COMPLETIONS): number
 //     of visible completions with respect to all possible completions.
