@@ -90,7 +90,8 @@ function AulxUICM(aEditor, aOptions) {
   };
   this.__proto__.getCharWidth = function() {
     if (!this._charWidth) {
-      this._charWidth = this.getCursorPosition().left/this.getCursor().ch;
+      this._charWidth = this.editor.charCoords({ch:2,line:1}).left -
+                        this.editor.charCoords({ch:1,line:1}).left;
     }
     return this._charWidth;
   };

@@ -80,7 +80,7 @@ console.log('fib(10) = ' + fibonacci.at(10));
     <script src='aulx.js'></script>
     <script src='aulx-ui.js'></script>
     <script>
-var cmeditor = CodeMirror.fromTextArea(editor);
+var cmeditor = CodeMirror.fromTextArea(editor, {lineNumbers: true});
 var parserWorker = null;
 try {
   parserWorker = new Worker('demo/parser-worker.js');
