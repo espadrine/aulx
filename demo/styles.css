@@ -2,6 +2,9 @@
   padding: 0;
   margin: 0;
 }
+
+/* CodeMirror-specific */
+
 .CodeMirror, .right {
   display: inline-block;
   min-height: 100%;
@@ -16,8 +19,13 @@
   right: 0;
   width: calc(55% - 1px);
   max-width: 55%;
-  background: rgb(245, 245, 255);
   border-left: 1px solid rgb(229, 229, 238);
+  text-align: center;
+  font-family: 'Averia Sans Libre', sans-serif;
+  background: url('crayon-small.png') repeat 0 0 / 1em 1em,
+              /* Why does Blink require me to put 11px below? */
+              url('hack.png') repeat 0 0 / 11px,
+              #f9f3ff;
 }
 .fullscreen + .right {
   width: 0;
@@ -69,6 +77,28 @@
   right: 60px;
   background-image: url(icon-changeTheme.png);
 }
+
+/* Header */
+
+header {
+  width: 100%;
+  padding: 5px;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  margin-bottom: 2em;
+}
+hgroup {
+  border: dashed 3px #aac;
+  border-image: url('crayon.png') 19 stretch;
+  border-image-width: 4;
+  background: rgba(255, 255, 255, 0.4);
+  padding: 1em;
+  width: 50%;
+  margin: auto;
+}
+
+/* GitHub banner. */
+
 #forkongithub a{background:#268bd2;color:#fff;text-decoration:none;font-family:arial,
 sans-serif;text-align:center;font-weight:bold;padding:5px 40px;font-size:1rem;line-height:2rem;position:relative;transition:0.5s;}#forkongithub
 a:hover{background:#060;color:#fff;}#forkongithub a::before,#forkongithub
