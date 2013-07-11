@@ -97,12 +97,12 @@ function updateStaticCache(source, caret) {
   try {
     if (!!this.options.parserContinuation) {
       this.options.parse(source, {loc:true}, function(tree) {
-        this.staticCandidates = getStaticScope(tree, caret, this.options)
+        this.staticCandidates = getStaticScope(tree.body, caret, this.options)
             || this.staticCandidates;  // If it fails, use the previous version.
       }.bind(this));
     } else {
       var tree = this.options.parse(source, {loc:true});
-      this.staticCandidates = getStaticScope(tree, caret, this.options)
+      this.staticCandidates = getStaticScope(tree.body, caret, this.options)
           || this.staticCandidates;   // If it fails, use the previous version.
     }
   } catch (e) { return null; }
@@ -114,7 +114,7 @@ function getStaticScope(tree, caret, options) {
   var subnode, symbols;
   var store = options.store;
 
-  var node = tree.body;
+  var node = tree;
   var stack = [];
   var index = 0;
   var indices = [];
@@ -195,7 +195,7 @@ function getStaticScope(tree, caret, options) {
           store.addProperty(subnode.id.name,
               { name: 'Function', index: 0 },
               stack.length);
-          readFun(store, subnode);
+          readFun(store, subnode, tree);
         }
         if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
@@ -412,6 +412,17 @@ TypeStore.prototype = {
       sourceIndices.push(atype.index);
       this.type.set(atype.name, sourceIndices);
     }
+  },
+
+  // Add a compound type.
+  // type: { "Constructor": [0] } (a Map).
+  addTypes: function(type) {
+    var that = this;
+    type.forEach(function(value, key) {
+      for (var i = 0; i < value.length; i++) {
+        that.addType({ name: key, index: value[i] });
+      }
+    });
   }
 };
 
@@ -508,7 +519,7 @@ function typeFromLiteral(store, symbols, node) {
 // Assumes that the function has an explicit name (node.id.name).
 //
 // node is a named function declaration / expression.
-function readFun(store, node) {
+function readFun(store, node, tree) {
   var funcStore = store.properties.get(node.id.name);
   var statements = node.body.body;
   for (var i = 0; i < statements.length; i++) {
@@ -518,12 +529,28 @@ function readFun(store, node) {
       // Member expression like `this.bar = …`.
       typeFromMember(store, statements[i].expression.left, node.id.name);
 
-    } else if (statements[i].type = "ReturnStatement") {
+    } else if (statements[i].type === "ReturnStatement") {
       // Return statement, like `return {foo:bar}`.
+
       if (statements[i].argument.type === "Literal" ||
           statements[i].argument.type === "ObjectExpression") {
         // The source at index 1 is that for the returned object.
         typeFromLiteral(funcStore.sources[1], [], statements[i].argument);
+
+      } else if (statements[i].argument.type === "Identifier") {
+        // Put a caret after the return statement and get the scope.
+        var returnStore = new TypeStore();
+        var returnCaret = { line: statements[i].loc.end.line - 1,
+                            ch: statements[i].loc.end.column };
+        returnStore = getStaticScope(node.body.body, returnCaret,
+            { store: returnStore });
+        var returnEl = returnStore.properties.get(statements[i].argument.name);
+        if (returnEl) {
+          returnEl.properties.forEach(function(value, key) {
+            funcStore.sources[1].properties.set(key, value);
+          });
+          funcStore.sources[1].addTypes(returnEl.type);
+        }
       }
     }
   }
