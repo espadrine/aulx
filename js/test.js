@@ -177,6 +177,14 @@ t.eq(jsCompleter(source, caret,
      [{display:"bar", prefix:"b", score:0}],
      "Static analysis reads the return type of functions.");
 
+source = 'function foo(){var r = {bar:1}; return r;}; var f = foo(); f.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", prefix:"b", score:0}],
+     "Static analysis sees local bindings for literals for the return type " +
+     "of function.");
+
 source = 'var foo = 0; foo.b';
 global = Object.create(null);
 global.Number = Object.create(null);
