@@ -1381,6 +1381,7 @@ JS.prototype.identifierLookup = identifierLookup;
 function dynAnalysisFromType(completion, symbols, global, matchProp) {
   var store = this.staticCandidates;
   for (var i = 0; i < symbols.length; i++) {
+    if (!store) { return; }
     store = store.properties.get(symbols[i]);
   }
   // Get the type of this property.
