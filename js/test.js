@@ -100,7 +100,7 @@ t.eq(jsCompleter(source, caret, {global:global}).candidates,
 source = 'var foobar; foo';
 caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret, {fireStaticAnalysis:true}).candidates,
-     [{display:"foobar", prefix:"foo", score:0}],
+     [{display:"foobar", prefix:"foo", score:1}],
      "The JS completer works with static analysis.");
 
 source = 'foo.bar = 5; foo.b';

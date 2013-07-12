@@ -824,7 +824,8 @@ JS.prototype.updateStaticCache = updateStaticCache;
 
 function getStaticScope(tree, caret, options) {
   var subnode, symbols;
-  var store = options.store;
+  // TODO: use options.store back.
+  var store = new TypeStore(); //options.store;
 
   var node = tree;
   var stack = [];
@@ -842,29 +843,8 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.type == "VariableDeclarator") {
           // Variable names go one level too deep.
-          if (subnode.init && subnode.init.type === "NewExpression") {
-            store.addProperty(subnode.id.name,      // property name
-                { name: subnode.init.callee.name,   // atomic type
-                  index: 0 },   // created from `new C()`
-                stack.length - 1);                  // weight
-            store.addProperty(subnode.init.callee.name,
-                { name: 'Function', index: 0 });
-            // FIXME: add built-in types detection.
-          } else if (subnode.init && subnode.init.type === "Literal" ||
-                     subnode.init && subnode.init.type === "ObjectExpression" ||
-                     subnode.init && subnode.init.type === "ArrayExpression") {
-            typeFromLiteral(store, [subnode.id.name], subnode.init);
-            store.properties.get(subnode.id.name).weight = stack.length - 1;
-          } else if (subnode.init && subnode.init.type === "CallExpression") {
-            // `var foo = bar()`
-            store.addProperty(subnode.id.name,
-                { name: subnode.init.callee.name,   // bar
-                  index: 1 },                       // created from `bar()`
-                stack.length - 1);
-          } else {
-            // Simple object.
-            store.addProperty(subnode.id.name, null, stack.length - 1);
-          }
+          typeFromAssignment(store, [subnode.id.name], subnode.init,
+              stack.length);  // weight
           if (!!subnode.init) {
             subnode = subnode.init;
           }
@@ -875,12 +855,11 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.type == "AssignmentExpression") {
           // foo.bar = something;
+          // FIXME: code in common with `var foo = something`.
           if (subnode.left.type === "MemberExpression") {
             symbols = typeFromMember(store, subnode.left);
-          }
-          if (subnode.right.type === "ObjectExpression") {
-            typeFromLiteral(store, symbols, subnode.right);
-          }
+          } else { symbols = [subnode.left.name]; }
+          typeFromAssignment(store, symbols, subnode.right, stack.length);
           subnode = subnode.right;       // f.g = function(){…};
         }
         if (subnode.type == "CallExpression") {
@@ -907,7 +886,7 @@ function getStaticScope(tree, caret, options) {
           store.addProperty(subnode.id.name,
               { name: 'Function', index: 0 },
               stack.length);
-          readFun(store, subnode, tree);
+          readFun(store, subnode);
         }
         if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
@@ -1048,7 +1027,7 @@ function argumentNames(node, store, weight) {
 // - A parameter to a function.
 //
 // Each function stores information in the TypeStore about all possible sources
-// it can give, as a list of sources (aka maps to typestores):
+// it can give, as a list of sources (aka typestores to all properties):
 //
 //     [`this` properties, return properties, param1, param2, etc.]
 //
@@ -1140,9 +1119,10 @@ TypeStore.prototype = {
 
 // Store is a TypeStore instance,
 // node is a MemberExpression.
-// funName is the name of the containing function.
-// Having funName set prevents setting properties on `this`.
-function typeFromMember(store, node, funName) {
+// funcStore is the typeStore of the containing function.
+// Having funcStore set prevents setting properties on `this`.
+// FIXME: when using funcStore, store is useless.
+function typeFromMember(store, node, funcStore) {
   var symbols, symbol, i;
   symbols = [];
   symbol = '';
@@ -1157,18 +1137,13 @@ function typeFromMember(store, node, funName) {
     symbols.push(node.object.name);  // At this point, node is an identifier.
   } else {
     // Add the `this` properties to the function's generic properties.
-    var func = store.properties.get(funName);
-    if (!!func) {
+    if (!!funcStore) {
       for (i = symbols.length - 1; i >= 0; i--) {
         symbol = symbols[i];
-        func.sources[0].addProperty(symbol,
-            {name:"Object", index:0}, func.weight);
-        func = func.properties.get(symbol);
+        funcStore.sources[0].addProperty(symbol,
+            {name:"Object", index:0}, funcStore.weight);
+        funcStore = funcStore.properties.get(symbol);
       }
-      return symbols;
-    } else if (!!funName) {
-      // Even if we don't have a function, we must stop there
-      // if funName is defined.
       return symbols;
     }
     // Treat `this` as a variable inside the function.
@@ -1227,19 +1202,91 @@ function typeFromLiteral(store, symbols, node) {
   substore.addType({ name: constructor, index: 0 });
 }
 
+// store: a TypeStore
+// symbols: a list of Strings representing the assignee,
+//          eg. `foo.bar` → ['foo','bar']
+// node: the AST node representing the assigned. May be null.
+// weight: a Number, representing the depth of the scope.
+function typeFromAssignment(store, symbols, node, weight) {
+  var property, i, substore, nextSubstore, lastSymbol;
+  lastSymbol = symbols[symbols.length - 1];
+  substore = store;
+  // Find the substore insertion point.
+  // The last symbol will be added separately.
+  for (i = 0; i < symbols.length - 1; i++) {
+    nextSubstore = substore.properties.get(symbols[i]);
+    if (!nextSubstore) {
+      // It really should exist.
+      substore.addProperty(symbols[i]);
+      nextSubstore = substore.properties.get(symbols[i]);
+    }
+    substore = nextSubstore;
+  }
+  // What is on the right?
+  if (!node) {
+    // nothing.
+    store.addProperty(lastSymbol, null, weight);
+    return;
+  }
+  if (node.type === "NewExpression") {
+    substore.addProperty(lastSymbol,    // property name
+        { name: node.callee.name,       // atomic type
+          index: 0 },                   // created from `new C()`
+        weight);                        // weight
+    // FIXME: the following might be inaccurate if the constructor isn't global
+    store.addProperty(node.callee.name, { name: 'Function', index: 0 });
+    // FIXME: add built-in types detection.
+  } else if (node.type === "Literal" ||
+             node.type === "ObjectExpression" ||
+             node.type === "ArrayExpression") {
+    // FIXME substore gets computed twice (once more in typeFromLiteral).
+    typeFromLiteral(store, symbols, node);
+    substore.properties.get(lastSymbol).weight = weight;
+  } else if (node.type === "CallExpression") {
+    if (node.callee.name) {
+      // `var foo = bar()`
+      substore.addProperty(lastSymbol,
+          { name: node.callee.name,     // bar
+            index: 1 },                 // created from `bar()`
+          weight);
+    } else if (node.callee.type === "FunctionExpression") {
+      // `var foo = function(){} ()`
+      var typeFunc = new Map;
+      typeFunc.set("Function", [0]);
+      var funcStore = new TypeStore(typeFunc);
+      funcType(store, node.callee, funcStore);
+      // Its type is that of the return type of the function called.
+      substore.properties.set(lastSymbol, funcStore.sources[1]);
+    }
+  } else if (node.type === "FunctionExpression") {
+    // `var foo = function ?() {}`.
+    // FIXME: actually say that this is a function type.
+    // Find the function's type.
+    store.addProperty(lastSymbol, null, weight);
+  } else {
+    // Simple object.
+    store.addProperty(lastSymbol, null, weight);
+  }
+}
+
 //
 // Assumes that the function has an explicit name (node.id.name).
 //
 // node is a named function declaration / expression.
-function readFun(store, node, tree) {
+function readFun(store, node) {
   var funcStore = store.properties.get(node.id.name);
+  funcType(store, node, funcStore);
+}
+
+// node is a named function declaration / expression.
+function funcType(store, node, funcStore) {
   var statements = node.body.body;
   for (var i = 0; i < statements.length; i++) {
     if (statements[i].expression &&
         statements[i].expression.type === "AssignmentExpression" &&
         statements[i].expression.left.type === "MemberExpression") {
       // Member expression like `this.bar = …`.
-      typeFromMember(store, statements[i].expression.left, node.id.name);
+      typeFromMember(store, statements[i].expression.left, funcStore);
 
     } else if (statements[i].type === "ReturnStatement") {
       // Return statement, like `return {foo:bar}`.
