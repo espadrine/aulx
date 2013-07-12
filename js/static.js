@@ -195,7 +195,7 @@ function getStaticScope(tree, caret, options) {
           store.addProperty(subnode.id.name,
               { name: 'Function', index: 0 },
               stack.length);
-          readFun(store, subnode, tree);
+          readFun(store, subnode);
         }
         if (caretInBlock(subnode, caret)) {
           // Parameters are one level deeper than the function's name itself.
@@ -519,7 +519,7 @@ function typeFromLiteral(store, symbols, node) {
 // Assumes that the function has an explicit name (node.id.name).
 //
 // node is a named function declaration / expression.
-function readFun(store, node, tree) {
+function readFun(store, node) {
   var funcStore = store.properties.get(node.id.name);
   var statements = node.body.body;
   for (var i = 0; i < statements.length; i++) {
