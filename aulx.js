@@ -809,12 +809,12 @@ function updateStaticCache(source, caret) {
   try {
     if (!!this.options.parserContinuation) {
       this.options.parse(source, {loc:true}, function(tree) {
-        this.staticCandidates = getStaticScope(tree.body, caret, this.options)
+        this.staticCandidates = getStaticScope(tree.body, caret)
             || this.staticCandidates;  // If it fails, use the previous version.
       }.bind(this));
     } else {
       var tree = this.options.parse(source, {loc:true});
-      this.staticCandidates = getStaticScope(tree.body, caret, this.options)
+      this.staticCandidates = getStaticScope(tree.body, caret)
           || this.staticCandidates;   // If it fails, use the previous version.
     }
   } catch (e) { return null; }
@@ -822,10 +822,9 @@ function updateStaticCache(source, caret) {
 
 JS.prototype.updateStaticCache = updateStaticCache;
 
-function getStaticScope(tree, caret, options) {
+function getStaticScope(tree, caret) {
   var subnode, symbols;
-  // TODO: use options.store back.
-  var store = new TypeStore(); //options.store;
+  var store = new TypeStore();
 
   var node = tree;
   var stack = [];
@@ -842,6 +841,7 @@ function getStaticScope(tree, caret, options) {
           subnode = subnode.argument;
         }
         if (subnode.type == "VariableDeclarator") {
+          // var foo = something;
           // Variable names go one level too deep.
           typeFromAssignment(store, [subnode.id.name], subnode.init,
               stack.length);  // weight
@@ -855,7 +855,6 @@ function getStaticScope(tree, caret, options) {
         }
         if (subnode.type == "AssignmentExpression") {
           // foo.bar = something;
-          // FIXME: code in common with `var foo = something`.
           if (subnode.left.type === "MemberExpression") {
             symbols = typeFromMember(store, subnode.left);
           } else { symbols = [subnode.left.name]; }
@@ -1301,8 +1300,7 @@ function funcType(store, node, funcStore) {
         var returnStore = new TypeStore();
         var returnCaret = { line: statements[i].loc.end.line - 1,
                             ch: statements[i].loc.end.column };
-        returnStore = getStaticScope(node.body.body, returnCaret,
-            { store: returnStore });
+        returnStore = getStaticScope(node.body.body, returnCaret);
         var returnEl = returnStore.properties.get(statements[i].argument.name);
         if (returnEl) {
           returnEl.properties.forEach(function(value, key) {
