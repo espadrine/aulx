@@ -1116,12 +1116,35 @@ TypeStore.prototype = {
   }
 };
 
+// funcStore is the typeStore of the containing function.
+// node is a MemberExpression.
+// Returns a list of identifier elements.
+function typeFromThis(funcStore, node) {
+  var symbols, symbol, i;
+  symbols = [];
+  symbol = '';
+  while (node.object &&   // `foo()` doesn't have a `.object`.
+         node.object.type !== "Identifier" &&
+         node.object.type !== "ThisExpression") {
+    symbols.push(node.property.name);
+    node = node.object;
+  }
+  symbols.push(node.property.name);
+  if (node.object.type === "ThisExpression") {
+    // Add the `this` properties to the function's generic properties.
+    for (i = symbols.length - 1; i >= 0; i--) {
+      symbol = symbols[i];
+      funcStore.sources[0].addProperty(symbol,
+          {name:"Object", index:0}, funcStore.weight);
+      funcStore = funcStore.properties.get(symbol);
+    }
+    return symbols;
+  }
+}
+
 // Store is a TypeStore instance,
 // node is a MemberExpression.
-// funcStore is the typeStore of the containing function.
-// Having funcStore set prevents setting properties on `this`.
-// FIXME: when using funcStore, store is useless.
-function typeFromMember(store, node, funcStore) {
+function typeFromMember(store, node) {
   var symbols, symbol, i;
   symbols = [];
   symbol = '';
@@ -1135,16 +1158,6 @@ function typeFromMember(store, node, funcStore) {
   if (node.object.type !== "ThisExpression") {
     symbols.push(node.object.name);  // At this point, node is an identifier.
   } else {
-    // Add the `this` properties to the function's generic properties.
-    if (!!funcStore) {
-      for (i = symbols.length - 1; i >= 0; i--) {
-        symbol = symbols[i];
-        funcStore.sources[0].addProperty(symbol,
-            {name:"Object", index:0}, funcStore.weight);
-        funcStore = funcStore.properties.get(symbol);
-      }
-      return symbols;
-    }
     // Treat `this` as a variable inside the function.
     symbols.push("this");
   }
@@ -1285,7 +1298,7 @@ function funcType(store, node, funcStore) {
         statements[i].expression.type === "AssignmentExpression" &&
         statements[i].expression.left.type === "MemberExpression") {
       // Member expression like `this.bar = …`.
-      typeFromMember(store, statements[i].expression.left, funcStore);
+      typeFromThis(funcStore, statements[i].expression.left);
 
     } else if (statements[i].type === "ReturnStatement") {
       // Return statement, like `return {foo:bar}`.
