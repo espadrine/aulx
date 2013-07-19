@@ -190,6 +190,13 @@ caret = {line:0, ch:source.length};
 t.eq(jsCompleter(source, caret,
     {fireStaticAnalysis:true}).candidates,
      [{display:"bar", prefix:"b", score:0}],
+     "Static analysis sees assigned anonymous called functions.");
+
+source = 'var foo = function() {return {bar: 1};}, o = foo(); o.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", prefix:"b", score:0}],
      "Static analysis sees assigned anonymous functions.");
 
 source = 'var foo = 0; foo.b';
