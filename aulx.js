@@ -1247,7 +1247,6 @@ function typeFromAssignment(store, symbols, node, weight) {
         weight);                        // weight
     // FIXME: the following might be inaccurate if the constructor isn't global
     store.addProperty(node.callee.name, { name: 'Function', index: 0 });
-    // FIXME: add built-in types detection.
   } else if (node.type === "Literal" ||
              node.type === "ObjectExpression" ||
              node.type === "ArrayExpression") {
@@ -1272,9 +1271,11 @@ function typeFromAssignment(store, symbols, node, weight) {
     }
   } else if (node.type === "FunctionExpression") {
     // `var foo = function ?() {}`.
-    // FIXME: actually say that this is a function type.
-    // Find the function's type.
-    store.addProperty(lastSymbol, null, weight);
+    var typeFunc = new Map;
+    typeFunc.set("Function", [0]);
+    var funcStore = new TypeStore(typeFunc);
+    funcType(store, node, funcStore);
+    store.properties.set(lastSymbol, funcStore);
   } else {
     // Simple object.
     store.addProperty(lastSymbol, null, weight);
