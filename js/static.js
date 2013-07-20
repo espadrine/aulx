@@ -582,6 +582,7 @@ function readFun(store, node) {
 // node is a named function declaration / expression.
 function funcType(store, node, funcStore) {
   var statements = node.body.body;
+  var returnStore, returnCaret;
   for (var i = 0; i < statements.length; i++) {
     if (statements[i].expression &&
         statements[i].expression.type === "AssignmentExpression" &&
@@ -599,9 +600,8 @@ function funcType(store, node, funcStore) {
 
       } else if (statements[i].argument.type === "Identifier") {
         // Put a caret after the return statement and get the scope.
-        var returnStore = new TypeStore();
-        var returnCaret = { line: statements[i].loc.end.line - 1,
-                            ch: statements[i].loc.end.column };
+        returnCaret = { line: statements[i].loc.end.line - 1,
+                        ch: statements[i].loc.end.column };
         returnStore = getStaticScope(node.body.body, returnCaret);
         var returnEl = returnStore.properties.get(statements[i].argument.name);
         if (returnEl) {
@@ -611,6 +611,19 @@ function funcType(store, node, funcStore) {
           funcStore.sources[1].addTypes(returnEl.type);
         }
       }
+    }
+  }
+  if (returnStore === undefined) {
+    // There was no return statement. Therefore, no store either.
+    returnStore = new TypeStore();
+    returnCaret = { line: statements[statements.length-1].loc.end.line - 1,
+                    ch: statements[statements.length-1].loc.end.column };
+    returnStore = getStaticScope(node.body.body, returnCaret);
+  }
+  for (var i = 0; i < node.params.length; i++) {
+    if (node.params[i].name) {
+      funcStore.sources[2 + i] =
+        returnStore.properties.get(node.params[i].name);
     }
   }
 }
