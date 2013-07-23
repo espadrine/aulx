@@ -866,8 +866,15 @@ function getStaticScope(tree, caret) {
             store.addProperty(subnode.callee.name,
                 { name: 'Function', index: 0 },
                 stack.length);
+            // Parameters
+            for (var i = 0; i < subnode.arguments.length; i++) {
+              store.getOrSet(subnode.arguments[i].name,
+                  { name: subnode.callee.name, index: 2 + i },
+                  stack.length);
+            }
           } else if (!subnode.callee.body) { // f.g()
             typeFromMember(store, subnode.callee);
+            // FIXME: make the last one (eg, `g`) a function.
           }
         }
         if (subnode.type == "Property") {
@@ -1077,6 +1084,17 @@ TypeStore.prototype = {
     }
   },
 
+  // Get a property. If inexistent, creates it.
+  // Same parameters as `addProperty`.
+  getOrSet: function(prop, atype, weight) {
+    if (!this.properties.has(prop)) {
+      this.addProperty(prop, atype, weight);
+    } else if (!!atype) {
+      this.properties.get(prop).addType(atype);
+    }
+    return this.properties.get(prop);
+  },
+
   // Given an atomic type (name, index), is this one?
   hasType: function(atype) {
     if (!this.type.has(atype.name)) { return false; }
@@ -1254,6 +1272,7 @@ function typeFromAssignment(store, symbols, node, weight) {
     typeFromLiteral(store, symbols, node);
     substore.properties.get(lastSymbol).weight = weight;
   } else if (node.type === "CallExpression") {
+    // FIXME: common code, see getStaticScope.
     if (node.callee.name) {
       // `var foo = bar()`
       substore.addProperty(lastSymbol,
