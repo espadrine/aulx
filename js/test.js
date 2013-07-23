@@ -199,6 +199,13 @@ t.eq(jsCompleter(source, caret,
      [{display:"bar", prefix:"b", score:0}],
      "Static analysis sees assigned anonymous functions.");
 
+source = 'function foo(baz) {baz.bar = 1;}; foo(o); o.b';
+caret = {line:0, ch:source.length};
+t.eq(jsCompleter(source, caret,
+    {fireStaticAnalysis:true}).candidates,
+     [{display:"bar", prefix:"b", score:0}],
+     "Static analysis sees function parameters' type in direct calls.");
+
 source = 'var foo = 0; foo.b';
 global = Object.create(null);
 global.Number = Object.create(null);
