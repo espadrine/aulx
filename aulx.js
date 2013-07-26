@@ -861,24 +861,24 @@ function getStaticScope(tree, caret) {
           typeFromAssignment(store, symbols, subnode.right, stack.length);
           subnode = subnode.right;       // f.g = function(){…};
         }
-        if (subnode.type == "CallExpression") {
-          if (subnode.callee.name) { // f()
-            store.addProperty(subnode.callee.name,
-                { name: 'Function', index: 0 },
-                stack.length);
-            // Parameters
-            for (var i = 0; i < subnode.arguments.length; i++) {
-              store.getOrSet(subnode.arguments[i].name,
-                  { name: subnode.callee.name, index: 2 + i },
-                  stack.length);
-            }
-          } else if (!subnode.callee.body) { // f.g()
-            typeFromMember(store, subnode.callee);
-            // FIXME: make the last one (eg, `g`) a function.
-          }
-        }
         if (subnode.type == "Property") {
           subnode = subnode.value;       // {f: function(){…}};
+        }
+      }
+      if (subnode.type == "CallExpression") {
+        if (subnode.callee.name) { // f()
+          store.addProperty(subnode.callee.name,
+              { name: 'Function', index: 0 },
+              stack.length);
+          // Parameters
+          for (var i = 0; i < subnode.arguments.length; i++) {
+            store.getOrSet(subnode.arguments[i].name,
+                { name: subnode.callee.name, index: 2 + i },
+                stack.length);
+          }
+        } else if (!subnode.callee.body) { // f.g()
+          typeFromMember(store, subnode.callee);
+          // FIXME: make the last one (eg, `g`) a function.
         }
       }
       if (subnode.type == "FunctionDeclaration" ||
