@@ -154,20 +154,7 @@ function getStaticScope(tree, caret) {
         }
       }
       if (subnode.type == "CallExpression") {
-        if (subnode.callee.name) { // f()
-          store.addProperty(subnode.callee.name,
-              { name: 'Function', index: 0 },
-              stack.length);
-          // Parameters
-          for (var i = 0; i < subnode.arguments.length; i++) {
-            store.getOrSet(subnode.arguments[i].name,
-                { name: subnode.callee.name, index: 2 + i },
-                stack.length);
-          }
-        } else if (!subnode.callee.body) { // f.g()
-          typeFromMember(store, subnode.callee);
-          // FIXME: make the last one (eg, `g`) a function.
-        }
+        typeFromCall(store, subnode, stack.length);
       }
       if (subnode.type == "FunctionDeclaration" ||
           subnode.type == "FunctionExpression" ||
@@ -560,22 +547,7 @@ function typeFromAssignment(store, symbols, node, weight) {
     typeFromLiteral(store, symbols, node);
     substore.properties.get(lastSymbol).weight = weight;
   } else if (node.type === "CallExpression") {
-    // FIXME: common code, see getStaticScope.
-    if (node.callee.name) {
-      // `var foo = bar()`
-      substore.addProperty(lastSymbol,
-          { name: node.callee.name,     // bar
-            index: 1 },                 // created from `bar()`
-          weight);
-    } else if (node.callee.type === "FunctionExpression") {
-      // `var foo = function(){} ()`
-      var typeFunc = new Map;
-      typeFunc.set("Function", [0]);
-      var funcStore = new TypeStore(typeFunc);
-      funcType(store, node.callee, funcStore);
-      // Its type is that of the return type of the function called.
-      substore.properties.set(lastSymbol, funcStore.sources[1]);
-    }
+    typeFromCall(store, node, weight, lastSymbol, substore);
   } else if (node.type === "FunctionExpression") {
     // `var foo = function ?() {}`.
     var typeFunc = new Map;
@@ -588,6 +560,47 @@ function typeFromAssignment(store, symbols, node, weight) {
     store.addProperty(lastSymbol, null, weight);
   }
 }
+
+// Process a call expression.
+// `node` is that AST CallExpression.
+// `store` is the TypeStore to put it in.
+// If that call is set to a property, `setstore` refers to the TypeStore wherein
+// to put the type information, and `setsymbol` to the symbol set to that.
+function typeFromCall(store, node, weight, setsymbol, setstore) {
+  if (node.callee.name) {  // var foo = bar()
+    store.addProperty(node.callee.name,
+        { name: 'Function', index: 0 },
+        weight);
+    // Parameters
+    for (var i = 0; i < node.arguments.length; i++) {
+      store.getOrSet(node.arguments[i].name,
+          { name: node.callee.name, index: 2 + i },
+          weight);
+    }
+    if (setstore) {
+      // Return type (eg, var foo = bar())
+      setstore.addProperty(setsymbol,
+          { name: node.callee.name,     // bar
+            index: 1 },                 // created from `bar()`
+          weight);
+    }
+  } else if (!node.callee.body) {  // f.g()
+    typeFromMember(store, node.callee);
+    // FIXME: make the last one (eg, `g`) a function.
+  } else if (node.callee.type === "FunctionExpression") {
+    // var foo = function(){} ()
+    var typeFunc = new Map();
+    typeFunc.set("Function", [0]);
+    var funcStore = new TypeStore(typeFunc);
+    funcType(store, node.callee, funcStore);
+    // Its type is that of the return type of the function called.
+    if (setstore) {
+      // FIXME: don't override, add the properties.
+      setstore.properties.set(setsymbol, funcStore.sources[1]);
+    }
+  }
+}
+
 
 //
 // Assumes that the function has an explicit name (node.id.name).
