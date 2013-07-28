@@ -31,22 +31,29 @@ function AulxUI(aEditor, aOptions) {
   this.editor = aEditor;
   this.document = global.document;
 
-  // Initiate Aulx in JS mode.
-  if (parserWorker) {
-    this.aulxJS = new Aulx.JS({
-      global: global,
-      parse: parseCont,
-      parserContinuation: true
-    });
+  this.mode = this.getMode();
+  if (this.mode == this.MODES.JAVASCRIPT) {
+    // Initiate Aulx in JS mode.
+    if (parserWorker) {
+      this.aulxJS = new Aulx.JS({
+        global: global,
+        parse: parseCont,
+        parserContinuation: true
+      });
+    }
+    else {
+      // If parser is not available somehow, fallback to sync parsing version of
+      // Aulx.JS()
+      this.aulxJS = new Aulx.JS({
+        global: global,
+        parse: esprima.parse
+      });
+    }
   }
-  else {
-    // If parser is not available somehow, fallback to sync parsing version of
-    // Aulx.JS()
-    this.aulxJS = new Aulx.JS({
-      global: global,
-      parse: esprima.parse
-    });
+  else if (this.mode == this.MODES.CSS) {
+    // TODO: Initiate Aulx CSS object.
   }
+
   // Bind!
   this._onUp = this._onUp.bind(this);
   this._onDown = this._onDown.bind(this);
@@ -91,6 +98,12 @@ AulxUI.prototype = {
   _end: null,
 
   _delayedPopup: null,
+
+  MODES: {
+    JAVASCRIPT: 0,
+    CSS: 1,
+    HTML: 2,
+  },
 
   runCompleters: function AUI_runCompleters() {
     this._completion = this.aulxJS.complete(this.getValue(), this.getCursor());

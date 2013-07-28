@@ -85,6 +85,18 @@ function AulxUICM(aEditor, aOptions) {
   });
 
   // Overriding methods derived from AulxUI
+  this.__proto__.getMode = function() {
+    let mode = this.editor.getOption("mode");
+    switch(mode) {
+      case "javascript":
+        return this.MODES.JAVASCRIPT;
+      case "css":
+        return this.MODES.CSS;
+      case "html":
+        return this.MODES.HTML;
+    }
+    return null;
+  };
   this.__proto__.getCursor = function() {
     return this.editor.getCursor();
   };
