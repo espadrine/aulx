@@ -68,7 +68,7 @@ function AulxUICM(aEditor, aOptions) {
 
   // Inheriting from main AulxUI
   this.editor = aEditor;
-  this.__proto__ = new AulxUI(aEditor);
+  this.__proto__ = new AulxUI(aEditor, {mode: this.getMode()});
 
   // The following will fire the autocompletion system on each character!
   this.editor.on('cursorActivity', this._onEditorSelection);
@@ -85,18 +85,6 @@ function AulxUICM(aEditor, aOptions) {
   });
 
   // Overriding methods derived from AulxUI
-  this.__proto__.getMode = function() {
-    var mode = this.editor.getOption("mode");
-    switch(mode) {
-      case "javascript":
-        return this.MODES.JAVASCRIPT;
-      case "css":
-        return this.MODES.CSS;
-      case "html":
-        return this.MODES.HTML;
-    }
-    return null;
-  };
   this.__proto__.getCursor = function() {
     return this.editor.getCursor();
   };
@@ -138,5 +126,19 @@ function AulxUICM(aEditor, aOptions) {
   };
 };
 
+AulxUICM.prototype = {
+  getMode: function() {
+    var mode = this.editor.getOption("mode");
+    switch(mode) {
+      case "javascript":
+        return EDITOR_MODES.JAVASCRIPT;
+      case "css":
+        return EDITOR_MODESEDITOR_MODES.CSS;
+      case "html":
+        return EDITOR_MODES.HTML;
+    }
+    return null;
+  }
+}
 // Expose it to outside workd as AulxUI.CM constructor
 exports.CM = AulxUICM;

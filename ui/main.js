@@ -10,6 +10,11 @@ function parseCont(source, options, cb) {
 
 var NUM_VISIBLE_COMPLETIONS = 10;
 var DELAYED_POPUP = 0;
+var EDITOR_MODES = {
+  JAVASCRIPT: 0,
+  CSS: 1,
+  HTML: 2,
+};
 
 // AulxUI object.
 // This constructor handles the popup and creates the necessary methods so that
@@ -24,6 +29,8 @@ var DELAYED_POPUP = 0;
 //     of visible completions with respect to all possible completions.
 //   - cssClass (defaults to "autocomplete"): CSS class used to style the
 //     autocompletion popup.
+//   - mode (defaults to EDITOR_MODES.JAVASCRIPT): The mode (or language) of the
+//     editor.
 //
 //  See NUM_VISIBLE_COMPLETIONS
 function AulxUI(aEditor, aOptions) {
@@ -31,8 +38,8 @@ function AulxUI(aEditor, aOptions) {
   this.editor = aEditor;
   this.document = global.document;
 
-  this.mode = this.getMode();
-  if (this.mode == this.MODES.JAVASCRIPT) {
+  this.mode = aOptions.mode;
+  if (this.mode == EDITOR_MODES.JAVASCRIPT) {
     // Initiate Aulx in JS mode.
     if (parserWorker) {
       this.aulxJS = new Aulx.JS({
@@ -50,7 +57,7 @@ function AulxUI(aEditor, aOptions) {
       });
     }
   }
-  else if (this.mode == this.MODES.CSS) {
+  else if (this.mode == EDITOR_MODES.CSS) {
     // TODO: Initiate Aulx CSS object.
   }
 
@@ -98,12 +105,6 @@ AulxUI.prototype = {
   _end: null,
 
   _delayedPopup: null,
-
-  MODES: {
-    JAVASCRIPT: 0,
-    CSS: 1,
-    HTML: 2,
-  },
 
   runCompleters: function AUI_runCompleters() {
     this._completion = this.aulxJS.complete(this.getValue(), this.getCursor());
