@@ -133,7 +133,7 @@ AulxUICM.prototype = {
       case "javascript":
         return EDITOR_MODES.JAVASCRIPT;
       case "css":
-        return EDITOR_MODESEDITOR_MODES.CSS;
+        return EDITOR_MODES.CSS;
       case "html":
         return EDITOR_MODES.HTML;
     }
