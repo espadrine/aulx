@@ -3580,7 +3580,7 @@ function AulxUICM(aEditor, aOptions) {
 
   // Overriding methods derived from AulxUI
   this.__proto__.getMode = function() {
-    let mode = this.editor.getOption("mode");
+    var mode = this.editor.getOption("mode");
     switch(mode) {
       case "javascript":
         return this.MODES.JAVASCRIPT;
