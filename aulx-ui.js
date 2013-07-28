@@ -1794,7 +1794,7 @@ function stateFromToken(tokens, tokIndex) {
               _state = popped == "f" ? CSS_STATES.frame
                                      : CSS_STATES.selector;
             }
-            else if (scopeStack.slice(-1) == "@m") {
+            else if (scopeStack.slice(-1)[0] == "@m") {
               scopeStack.pop();
               _state = CSS_STATES.null;
             }
@@ -1853,7 +1853,7 @@ function stateFromToken(tokens, tokIndex) {
           _state = CSS_STATES.property;
         }
         else if (token.tokenType == "}") {
-          if (scopeStack.slice(-1) == "@k") {
+          if (scopeStack.slice(-1)[0] == "@k") {
             scopeStack.pop();
           }
           _state = CSS_STATES.selector;
