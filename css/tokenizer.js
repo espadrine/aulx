@@ -706,6 +706,6 @@ UnicodeRangeToken.prototype.contains = function(code) {
 
 // Exportation.
 // TODO: also export the various tokens objects?
-exports.tokenize = tokenize;
+exports.CSS.tokenize = tokenize;
 
 }));

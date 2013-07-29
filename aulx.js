@@ -1607,6 +1607,7 @@ var JSKeywords = (function(keywords) {
 // Constructor for CSS completion.
 function CSS(options) {
   this.options = options || {};
+  this.global = this.options.global;
 }
 
 //
@@ -1687,7 +1688,7 @@ exports.CSS = CSS;
 //  - source: a string of CSS code.
 //  - caret: an objct {line: 0-indexed line, ch: 0-indexed column}.
 function getContext(source, caret) {
-  var tokens = stripWhitespace(cssCompleter.tokenize(source, {loc:true}));
+  var tokens = stripWhitespace(Aulx.CSS.tokenize(source, {loc:true}));
   if (tokens[tokens.length - 1].loc.end.line < caret.line ||
      (tokens[tokens.length - 1].loc.end.line === caret.line &&
       tokens[tokens.length - 1].loc.end.column < caret.ch)) {
@@ -1890,8 +1891,6 @@ function stateFromToken(tokens, tokIndex) {
                          // property's value is being completed etc.
   }
 }
-(function(exports) {
-
 (function (root, factory) {
     // Universal Module Definition (UMD) to support AMD, CommonJS/Node.js,
     // Rhino, and plain browser loading.
@@ -2600,11 +2599,9 @@ UnicodeRangeToken.prototype.contains = function(code) {
 
 // Exportation.
 // TODO: also export the various tokens objects?
-exports.tokenize = tokenize;
+exports.CSS.tokenize = tokenize;
 
 }));
-
-}(exports.css));
 // Keyword-based completion.
 //
 

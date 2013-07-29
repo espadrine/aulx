@@ -46,11 +46,7 @@ bundle('aulx.js', [
   'entrance/compl-begin.js',
   'css/main.js',
   'css/state-machine.js',
-  // Import tokenizer (with export shim).
-  'css/css-token-begin.js',
   'css/tokenizer.js',
-  'css/css-token-end.js',
-  // Properties.
   'css/properties.js',
   'entrance/compl-end.js',
 
@@ -76,11 +72,7 @@ bundle('aulx-ui.js', [
   'entrance/compl-begin.js',
   'css/main.js',
   'css/state-machine.js',
-  // Import tokenizer (with export shim).
-  'css/css-token-begin.js',
   'css/tokenizer.js',
-  'css/css-token-end.js',
-  // Properties.
   'css/properties.js',
   'entrance/compl-end.js',
 
