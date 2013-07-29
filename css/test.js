@@ -11,10 +11,10 @@ var caret;
 // Testing main.js
 
 // Properties.
-source = 'foo \n{ azi: baz; }';
+source = 'foo \n{ max-h: baz; }';
 caret = {line:1, ch:5};
 t.eq(aulx.css(source, caret).candidates,
-     [{display:"azimuth", prefix:"azi", score:0}],
+     [{display:"max-height", prefix:"max-h", score:0}],
      "CSS property autocompletion.");
 
 

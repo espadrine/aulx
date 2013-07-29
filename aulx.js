@@ -1688,7 +1688,7 @@ exports.CSS = CSS;
 //  - source: a string of CSS code.
 //  - caret: an objct {line: 0-indexed line, ch: 0-indexed column}.
 function getContext(source, caret) {
-  var tokens = stripWhitespace(Aulx.CSS.tokenize(source, {loc:true}));
+  var tokens = stripWhitespace(CSS.tokenize(source, {loc:true}));
   if (tokens[tokens.length - 1].loc.end.line < caret.line ||
      (tokens[tokens.length - 1].loc.end.line === caret.line &&
       tokens[tokens.length - 1].loc.end.column < caret.ch)) {
