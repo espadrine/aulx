@@ -42,7 +42,7 @@ function AulxUI(aEditor, aOptions) {
   if (this.mode == EDITOR_MODES.JAVASCRIPT) {
     // Initiate Aulx in JS mode.
     if (parserWorker) {
-      this.aulxJS = new Aulx.JS({
+      this.aulx = new Aulx.JS({
         global: global,
         parse: parseCont,
         parserContinuation: true
@@ -51,14 +51,16 @@ function AulxUI(aEditor, aOptions) {
     else {
       // If parser is not available somehow, fallback to sync parsing version of
       // Aulx.JS()
-      this.aulxJS = new Aulx.JS({
+      this.aulx = new Aulx.JS({
         global: global,
         parse: esprima.parse
       });
     }
   }
   else if (this.mode == EDITOR_MODES.CSS) {
-    // TODO: Initiate Aulx CSS object.
+    this.aulx = new Aulx.CSS({
+      global: global,
+    });
   }
 
   // Bind!
@@ -107,7 +109,7 @@ AulxUI.prototype = {
   _delayedPopup: null,
 
   runCompleters: function AUI_runCompleters() {
-    this._completion = this.aulxJS.complete(this.getValue(), this.getCursor());
+    this._completion = this.aulx.complete(this.getValue(), this.getCursor());
   },
 
   // Show the completions that are asked for.
@@ -227,7 +229,7 @@ AulxUI.prototype = {
     // If the line changed, the static analysis is worth updating.
     var lineno = this.getCursor().line;
     if (this._line !== lineno) {
-      this.aulxJS.fireStaticAnalysis(this.getValue(), this.getCursor());
+      this.aulx.fireStaticAnalysis(this.getValue(), this.getCursor());
       this._line = lineno;
       this.hidePopup();
     }

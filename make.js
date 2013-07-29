@@ -45,6 +45,7 @@ bundle('aulx.js', [
   // CSS completion files.
   'entrance/compl-begin.js',
   'css/main.js',
+  'css/state-machine.js',
   // Import tokenizer (with export shim).
   'css/css-token-begin.js',
   'css/tokenizer.js',
@@ -74,6 +75,7 @@ bundle('aulx-ui.js', [
   // CSS completion files.
   'entrance/compl-begin.js',
   'css/main.js',
+  'css/state-machine.js',
   // Import tokenizer (with export shim).
   'css/css-token-begin.js',
   'css/tokenizer.js',
