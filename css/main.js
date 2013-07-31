@@ -33,15 +33,20 @@ function cssCompleter(source, caret) {
   var completion = new Completion();
 
   // Getting the context from the caret position.
-  var context = getContext(source, caret);
-  if (!context) {
-    // We couldn't get the context, we won't be able to complete.
+  if (!this.resolveContext(source, caret)) {
+    // We couldn't resolve the context, we won't be able to complete.
     return completion;
   }
 
   // If it is a property completion, we can do something about it.
-  if (context.completing === CSS_STATES.property) {
-    completion.meld(completeProperties(context.data[0]));
+  switch(this.state) {
+    case CSS_STATES.property:
+      completion.meld(completeProperties(this.completing));
+      break;
+
+    case CSS_STATES.value:
+      completion.meld(completeValues(this.propertyName, this.completing));
+      break;
   }
 
   return completion;
@@ -54,14 +59,6 @@ function fireStaticAnalysis(source, caret) {
 }
 
 CSS.prototype.fireStaticAnalysis = fireStaticAnalysis;
-
-// Same as `(new aulx.CSS(options)).complete(source, caret)`.
-function css(source, caret, options) {
-  return (new CSS(options)).complete(source, caret);
-}
-
-exports.css = css;
-exports.CSS = CSS;
 
 // Get the context.
 //
@@ -81,7 +78,7 @@ exports.CSS = CSS;
 // Parameters:
 //  - source: a string of CSS code.
 //  - caret: an objct {line: 0-indexed line, ch: 0-indexed column}.
-function getContext(source, caret) {
+function resolveContext(source, caret) {
   var tokens = stripWhitespace(CSS.tokenize(source, {loc:true}));
   if (tokens[tokens.length - 1].loc.end.line < caret.line ||
      (tokens[tokens.length - 1].loc.end.line === caret.line &&
@@ -116,7 +113,7 @@ function getContext(source, caret) {
       ];
       if (inRange(caret.ch, range)) {
         // We're done. We've found the token in which the cursor is.
-        return stateFromToken(tokens, tokIndex, caret);
+        return this.resolveState(tokens, tokIndex, caret);
       } else if (caret.ch <= range[0]) {
         highIndex = tokIndex;
       } else if (range[1] < caret.ch) {
@@ -130,11 +127,21 @@ function getContext(source, caret) {
       lastCall = true;
     } else { tokIndexPrevValue = tokIndex; }
   }
-  return stateFromToken(tokens, tokIndex, caret);
+  return this.resolveState(tokens, tokIndex, caret);
 };
+
+CSS.prototype.resolveContext = resolveContext;
 
 function stripWhitespace(tokens) {
   return tokens.filter(function(token) {
     return token.tokenType !== 'WHITESPACE';
   });
 }
+
+// Same as `(new aulx.CSS(options)).complete(source, caret)`.
+function css(source, caret, options) {
+  return (new CSS(options)).complete(source, caret);
+}
+
+exports.css = css;
+exports.CSS = CSS;

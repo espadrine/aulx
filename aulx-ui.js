@@ -1639,15 +1639,20 @@ function cssCompleter(source, caret) {
   var completion = new Completion();
 
   // Getting the context from the caret position.
-  var context = getContext(source, caret);
-  if (!context) {
-    // We couldn't get the context, we won't be able to complete.
+  if (!this.resolveContext(source, caret)) {
+    // We couldn't resolve the context, we won't be able to complete.
     return completion;
   }
 
   // If it is a property completion, we can do something about it.
-  if (context.completing === CSS_STATES.property) {
-    completion.meld(completeProperties(context.data[0]));
+  switch(this.state) {
+    case CSS_STATES.property:
+      completion.meld(completeProperties(this.completing));
+      break;
+
+    case CSS_STATES.value:
+      completion.meld(completeValues(this.propertyName, this.completing));
+      break;
   }
 
   return completion;
@@ -1660,14 +1665,6 @@ function fireStaticAnalysis(source, caret) {
 }
 
 CSS.prototype.fireStaticAnalysis = fireStaticAnalysis;
-
-// Same as `(new aulx.CSS(options)).complete(source, caret)`.
-function css(source, caret, options) {
-  return (new CSS(options)).complete(source, caret);
-}
-
-exports.css = css;
-exports.CSS = CSS;
 
 // Get the context.
 //
@@ -1687,7 +1684,7 @@ exports.CSS = CSS;
 // Parameters:
 //  - source: a string of CSS code.
 //  - caret: an objct {line: 0-indexed line, ch: 0-indexed column}.
-function getContext(source, caret) {
+function resolveContext(source, caret) {
   var tokens = stripWhitespace(CSS.tokenize(source, {loc:true}));
   if (tokens[tokens.length - 1].loc.end.line < caret.line ||
      (tokens[tokens.length - 1].loc.end.line === caret.line &&
@@ -1722,7 +1719,7 @@ function getContext(source, caret) {
       ];
       if (inRange(caret.ch, range)) {
         // We're done. We've found the token in which the cursor is.
-        return stateFromToken(tokens, tokIndex, caret);
+        return this.resolveState(tokens, tokIndex, caret);
       } else if (caret.ch <= range[0]) {
         highIndex = tokIndex;
       } else if (range[1] < caret.ch) {
@@ -1736,8 +1733,10 @@ function getContext(source, caret) {
       lastCall = true;
     } else { tokIndexPrevValue = tokIndex; }
   }
-  return stateFromToken(tokens, tokIndex, caret);
+  return this.resolveState(tokens, tokIndex, caret);
 };
+
+CSS.prototype.resolveContext = resolveContext;
 
 function stripWhitespace(tokens) {
   return tokens.filter(function(token) {
@@ -1745,19 +1744,27 @@ function stripWhitespace(tokens) {
   });
 }
 
+// Same as `(new aulx.CSS(options)).complete(source, caret)`.
+function css(source, caret, options) {
+  return (new CSS(options)).complete(source, caret);
+}
+
+exports.css = css;
+exports.CSS = CSS;
+
 // Autocompletion types.
 
 var CSS_STATES = {
-  property: 0,       // foo { bar|: … }
+  "null": 0,
+  property: 1,       // foo { bar|: … }
   // TODO: Split the value state into multiple states
-  value: 1,          // foo {bar: baz|}
+  value: 2,          // foo {bar: baz|}
   // TODO: Split the selector state into multiple states. This should be easy
   // once selectors-search is integrated in Aulx.CSS
-  selector: 2,       // f| {bar: baz}
-  media: 3,          // @med| , or , @media scr| { }
-  keyframe: 4,       // @keyf|
-  frame: 5,          // @keyframs foobar { t|
-  "null": null
+  selector: 3,       // f| {bar: baz}
+  media: 4,          // @med| , or , @media scr| { }
+  keyframe: 5,       // @keyf|
+  frame: 6,          // @keyframs foobar { t|
 };
 
 // Note: This method assumes that the CSS is syntactically correct.
@@ -1770,13 +1777,14 @@ var CSS_STATES = {
 // Parameters:
 //  - tokens: list of tokens.
 //  - tokIndex: index of the token where the caret is.
-function stateFromToken(tokens, tokIndex) {
+function resolveState(tokens, tokIndex, caret) {
   // _state can be one of CSS_STATES;
   var _state = CSS_STATES.null;
   var cursor = 0;
   // This will maintain a stack of paired elements like { & }, @m & }, : & ; etc
   var scopeStack = [];
   var token = null;
+  var propertyName = null;
   while (cursor <= tokIndex && (token = tokens[cursor++])) {
     switch (_state) {
       case CSS_STATES.property:
@@ -1785,6 +1793,7 @@ function stateFromToken(tokens, tokIndex) {
         switch(token.tokenType) {
           case ":":
             scopeStack.push(":");
+            propertyName = tokens[cursor - 2].value;
             _state = CSS_STATES.value;
             break;
 
@@ -1885,12 +1894,13 @@ function stateFromToken(tokens, tokIndex) {
         break;
     }
   }
-  return {
-    completing: _state,
-    data: [token.value]  // TODO: This should also contain information like what
-                         // property's value is being completed etc.
-  }
+  this.state = _state;
+  this.completing = token.value.slice(0, caret.ch - token.loc.start.column);
+  this.propertyName = _state == CSS_STATES.value ? propertyName : null;
+  return _state;
 }
+
+CSS.prototype.resolveState = resolveState;
 (function (root, factory) {
     // Universal Module Definition (UMD) to support AMD, CommonJS/Node.js,
     // Rhino, and plain browser loading.
@@ -2624,18 +2634,38 @@ function completeProperties(startProp) {
   return completion;
 };
 
+// Return a sorted Completion (see entrance/completers.js).
+//  - candidateFromDisplay: Map from display string to candidate.
+//  - candidates: A list of candidates:
+//    * display: a string of what the user sees.
+//    * prefix: a string of what is added when the user chooses this.
+//    * score: a number to grade the candidate.
+//
+// Parameters:
+//  - propName: the property name for which value is being completed.
+//  - startProp: the start of the CSS value, as a String.
+function completeValues(propName, startValue) {
+  var completion = new Completion();
+  (properties[propName] || []).forEach(function(prop) {
+    if (prop.indexOf(startValue) === 0) {
+      completion.insert(new Candidate(prop, startValue, 0));
+    }
+  });
+  return completion;
+};
+
 // FIXME: give properties a score proportional to frequency in common code.
 //
 // Property value pair obtained from https://gist.github.com/scrapmac/6106409
 // On top of which some optimization is done to club similar values.
 //
 var AU = "auto";
-var BORDER = ["aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood", "cadetblue", CA, "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "dashed", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "dotted", "double", "firebrick", "floralwhite", "forestgreen", "fuchsia", "gainsboro", "ghostwhite", "gold", "goldenrod", "gray", "green", "greenyellow", "grey", "groove", HI, "honeydew", "hotpink", "hsl", "hsla", "indianred", "indigo", INH, "inset", "ivory", "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon", "medium", "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", NO, "oldlace", "olive", "olivedrab", "orange", "orangered", "orchid", "outset", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple", "red", "rgb", "rgba", "ridge", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow", "solid", "springgreen", "steelblue", "tan", "teal", "thick", "thin", "thistle", "tomato", "transparent", "turquoise", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen"];
 var CA = "calc";
-var COLORS = ["aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood", "cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen", "fuchsia", "gainsboro", "ghostwhite", "gold", "goldenrod", "gray", "green", "greenyellow", "grey", "honeydew", "hotpink", "hsl", "hsla", "indianred", "indigo", INH, "ivory", "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon", "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", "oldlace", "olive", "olivedrab", "orange", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple", "red", "rgb", "rgba", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow", "springgreen", "steelblue", "tan", "teal", "thistle", "tomato", "transparent", "turquoise", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen"];
 var HI = "hidden"
 var INH = "inherit";
 var NO = "none";
+var BORDER = ["aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood", "cadetblue", CA, "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "dashed", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "dotted", "double", "firebrick", "floralwhite", "forestgreen", "fuchsia", "gainsboro", "ghostwhite", "gold", "goldenrod", "gray", "green", "greenyellow", "grey", "groove", HI, "honeydew", "hotpink", "hsl", "hsla", "indianred", "indigo", INH, "inset", "ivory", "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon", "medium", "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", NO, "oldlace", "olive", "olivedrab", "orange", "orangered", "orchid", "outset", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple", "red", "rgb", "rgba", "ridge", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow", "solid", "springgreen", "steelblue", "tan", "teal", "thick", "thin", "thistle", "tomato", "transparent", "turquoise", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen"];
+var COLORS = ["aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood", "cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen", "fuchsia", "gainsboro", "ghostwhite", "gold", "goldenrod", "gray", "green", "greenyellow", "grey", "honeydew", "hotpink", "hsl", "hsla", "indianred", "indigo", INH, "ivory", "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon", "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", "oldlace", "olive", "olivedrab", "orange", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple", "red", "rgb", "rgba", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow", "springgreen", "steelblue", "tan", "teal", "thistle", "tomato", "transparent", "turquoise", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen"];
 var properties = {
   "align-items": ["baseline", "center", "flex-end", "flex-start", INH, "stretch"],
   "align-self": [AU, "baseline", "center", "flex-end", "flex-start", INH, "stretch"],

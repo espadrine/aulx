@@ -2,16 +2,16 @@
 // Autocompletion types.
 
 var CSS_STATES = {
-  property: 0,       // foo { bar|: … }
+  "null": 0,
+  property: 1,       // foo { bar|: … }
   // TODO: Split the value state into multiple states
-  value: 1,          // foo {bar: baz|}
+  value: 2,          // foo {bar: baz|}
   // TODO: Split the selector state into multiple states. This should be easy
   // once selectors-search is integrated in Aulx.CSS
-  selector: 2,       // f| {bar: baz}
-  media: 3,          // @med| , or , @media scr| { }
-  keyframe: 4,       // @keyf|
-  frame: 5,          // @keyframs foobar { t|
-  "null": null
+  selector: 3,       // f| {bar: baz}
+  media: 4,          // @med| , or , @media scr| { }
+  keyframe: 5,       // @keyf|
+  frame: 6,          // @keyframs foobar { t|
 };
 
 // Note: This method assumes that the CSS is syntactically correct.
@@ -24,13 +24,14 @@ var CSS_STATES = {
 // Parameters:
 //  - tokens: list of tokens.
 //  - tokIndex: index of the token where the caret is.
-function stateFromToken(tokens, tokIndex) {
+function resolveState(tokens, tokIndex, caret) {
   // _state can be one of CSS_STATES;
   var _state = CSS_STATES.null;
   var cursor = 0;
   // This will maintain a stack of paired elements like { & }, @m & }, : & ; etc
   var scopeStack = [];
   var token = null;
+  var propertyName = null;
   while (cursor <= tokIndex && (token = tokens[cursor++])) {
     switch (_state) {
       case CSS_STATES.property:
@@ -39,6 +40,7 @@ function stateFromToken(tokens, tokIndex) {
         switch(token.tokenType) {
           case ":":
             scopeStack.push(":");
+            propertyName = tokens[cursor - 2].value;
             _state = CSS_STATES.value;
             break;
 
@@ -139,9 +141,10 @@ function stateFromToken(tokens, tokIndex) {
         break;
     }
   }
-  return {
-    completing: _state,
-    data: [token.value]  // TODO: This should also contain information like what
-                         // property's value is being completed etc.
-  }
+  this.state = _state;
+  this.completing = token.value.slice(0, caret.ch - token.loc.start.column);
+  this.propertyName = _state == CSS_STATES.value ? propertyName : null;
+  return _state;
 }
+
+CSS.prototype.resolveState = resolveState;
