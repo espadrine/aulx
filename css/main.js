@@ -1,17 +1,25 @@
-// Constructor for CSS completion.
+//
+// Instantiate an Aulx object for CSS autocompletion.
+//
+// Parameters:
+//  - options: Object containing optional parameters:
+//    * global: global object. Will be used to do querySelectorAll and
+//    * getElementsByTagNames
+//    * maxEntries: Maximum selectors suggestions to display
+//
 function CSS(options) {
   this.options = options || {};
   this.global = this.options.global;
+  this.maxEntries = this.options.maxEntries;
 }
 
 //
 // Get a list of completions we can have, based on the state of the editor.
-// Autocompletion happens based on the following factors
-// (with increasing relevance):
+// CSS Autocompletion can happen at three places:
+//  - CSS property name completion.
+//  - CSS value completion (to some extent).
+//  - CSS selector suggestions based on DOM structure of the global provided.
 //
-// Level 0 = CSS properties.
-// Level 1 = dynamic lookup of available ids.
-// Level 2 = static analysis of the code (useful for variables).
 //
 // Use candidates for UI purposes, and completions when inserting the completion
 // in the editor.
@@ -49,7 +57,7 @@ function cssCompleter(source, caret) {
       break;
 
     case CSS_STATES.selector:
-      // completion.meld(this.suggestSelectors());
+      completion.meld(this.suggestSelectors());
       break;
   }
 
@@ -67,8 +75,8 @@ CSS.prototype.fireStaticAnalysis = fireStaticAnalysis;
 // Get the context.
 //
 // This uses Tab Atkins' CSS tokenizer.
-// 
-
+// See https://github.com/tabatkins/css-parser
+//
 // Fetch data from the position of the caret in the source.
 // The data is an object containing the following:
 //  - completing: a number from the Completing enumeration.

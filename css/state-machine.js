@@ -121,12 +121,17 @@ function resolveState(tokens, tokIndex, caret) {
                     selector += ".";
                     if (cursor <= tokIndex &&
                         tokens[cursor].tokenType == "IDENT") {
-                      selector += tokens[cursor++].value;
+                      token = tokens[cursor++];
+                      selector += token.value;
                     }
                   }
-                  else if (/[>~+,]/.test(token.value)) {
+                  else if (/[>~+]/.test(token.value)) {
                     selectorState = SELECTOR_STATES.null;
                     selector += token.value;
+                  }
+                  else if (token.value == ",") {
+                    selectorState = SELECTOR_STATES.null;
+                    selector = "";
                   }
                   break;
 
@@ -145,7 +150,7 @@ function resolveState(tokens, tokIndex, caret) {
                       break;
 
                     case "IDENT":
-                      selector += tokens[cursor].value;
+                      selector += token.value;
                       break;
                   }
                   break;
@@ -189,7 +194,8 @@ function resolveState(tokens, tokIndex, caret) {
                     selector += ".";
                     if (cursor <= tokIndex &&
                         tokens[cursor].tokenType == "IDENT") {
-                      selector += tokens[cursor++].value;
+                      token = tokens[cursor++];
+                      selector += token.value;
                     }
                   }
                   else if (token.value == "*") {
@@ -198,6 +204,10 @@ function resolveState(tokens, tokIndex, caret) {
                   }
                   else if (/[>~+]/.test(token.value)) {
                     selector += token.value;
+                  }
+                  else if (token.value == ",") {
+                    selectorState = SELECTOR_STATES.null;
+                    selector = "";
                   }
                   break;
 
@@ -210,9 +220,13 @@ function resolveState(tokens, tokIndex, caret) {
             case SELECTOR_STATES.pseudo:
               switch(token.tokenType) {
                 case "DELIM":
-                  if (/[>~+,]/.test(token.value)) {
+                  if (/[>~+]/.test(token.value)) {
                     selectorState = SELECTOR_STATES.null;
                     selector += token.value;
+                  }
+                  else if (token.value == ",") {
+                    selectorState = SELECTOR_STATES.null;
+                    selector = "";
                   }
                   break;
 
@@ -231,7 +245,7 @@ function resolveState(tokens, tokIndex, caret) {
                       break;
 
                     case "IDENT":
-                      selector += tokens[cursor].value;
+                      selector += token.value;
                       break;
                   }
                   break;
@@ -383,6 +397,7 @@ function resolveState(tokens, tokIndex, caret) {
   this.completing = (token.value || token.tokenType)
                       .slice(0, caret.ch - token.loc.start.column);
   this.propertyName = _state == CSS_STATES.value ? propertyName : null;
+  selector = selector.slice(0, selector.length + token.loc.end.column - caret.ch);
   this.selector = _state == CSS_STATES.selector ? selector : null;
   this.selectorState = _state == CSS_STATES.selector ? selectorState : null;
   return _state;

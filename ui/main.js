@@ -45,7 +45,8 @@ function AulxUI(aEditor, aOptions) {
       this.aulx = new Aulx.JS({
         global: global,
         parse: parseCont,
-        parserContinuation: true
+        parserContinuation: true,
+        maxEntries : aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS
       });
     }
     else {
