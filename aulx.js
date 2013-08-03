@@ -1665,6 +1665,16 @@ function cssCompleter(source, caret) {
     case CSS_STATES.selector:
       completion.meld(this.suggestSelectors());
       break;
+
+    case CSS_STATES.media:
+    case CSS_STATES.keyframe:
+      if ("media".indexOf(this.completing) == 0) {
+        completion.insert(new Candidate("media", this.completing, 0));
+      }
+      else if ("keyframes".indexOf(this.completing) == 0) {
+        completion.insert(new Candidate("keyframes", this.completing, 0));
+      }
+      break;
   }
 
   return completion;
@@ -2110,8 +2120,9 @@ function resolveState(tokens, tokIndex, caret) {
             break;
 
           case "AT-KEYWORD":
-            _state = token.value == "media" ? CSS_STATES.media
-                                            : CSS_STATES.keyframe;
+            selector = "@" + token.value;
+            _state = token.value.indexOf("m") == 0 ? CSS_STATES.media
+                                                   : CSS_STATES.keyframe;
             break;
         }
         break;

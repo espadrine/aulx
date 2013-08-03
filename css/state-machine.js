@@ -351,8 +351,9 @@ function resolveState(tokens, tokIndex, caret) {
             break;
 
           case "AT-KEYWORD":
-            _state = token.value == "media" ? CSS_STATES.media
-                                            : CSS_STATES.keyframe;
+            selector = "@" + token.value;
+            _state = token.value.indexOf("m") == 0 ? CSS_STATES.media
+                                                   : CSS_STATES.keyframe;
             break;
         }
         break;
