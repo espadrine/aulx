@@ -47,6 +47,10 @@ function cssCompleter(source, caret) {
     case CSS_STATES.value:
       completion.meld(completeValues(this.propertyName, this.completing));
       break;
+
+    case CSS_STATES.selector:
+      // completion.meld(this.suggestSelectors());
+      break;
   }
 
   return completion;
@@ -79,7 +83,7 @@ CSS.prototype.fireStaticAnalysis = fireStaticAnalysis;
 //  - source: a string of CSS code.
 //  - caret: an objct {line: 0-indexed line, ch: 0-indexed column}.
 function resolveContext(source, caret) {
-  var tokens = stripWhitespace(CSS.tokenize(source, {loc:true}));
+  var tokens = CSS.tokenize(source, {loc:true});
   if (tokens[tokens.length - 1].loc.end.line < caret.line ||
      (tokens[tokens.length - 1].loc.end.line === caret.line &&
       tokens[tokens.length - 1].loc.end.column < caret.ch)) {
@@ -131,12 +135,6 @@ function resolveContext(source, caret) {
 };
 
 CSS.prototype.resolveContext = resolveContext;
-
-function stripWhitespace(tokens) {
-  return tokens.filter(function(token) {
-    return token.tokenType !== 'WHITESPACE';
-  });
-}
 
 // Same as `(new aulx.CSS(options)).complete(source, caret)`.
 function css(source, caret, options) {
