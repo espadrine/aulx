@@ -21,7 +21,7 @@ source = 'foo \n{ max-h: baz; }';
 caret = {line:1, ch:5};
 t.eq(aulx.css(source, caret).candidates,
      [{display:"max-height", prefix:"max", score:0},
-      {"display":"max-width","prefix":"max","score":0}],
+      {display:"max-width", prefix:"max", score:0}],
      "CSS property autocompletion with cursor not at end of partial property " +
      "name giving rise to 2 suggestions instead of one.");
 
@@ -121,10 +121,10 @@ source = 'foo \n{ max-height: baz; }\n @keyframs {\n from {\n  color:   r';
 caret = {line:4, ch:12};
 t.eq(aulx.css(source, caret).candidates,
      [{display:"red", prefix:"r", score:0},
-      {"display":"rgb","prefix":"r","score":0},
-      {"display":"rgba","prefix":"r","score":0},
-      {"display":"rosybrown","prefix":"r","score":0},
-      {"display":"royalblue","prefix":"r","score":0}],
+      {display:"rgb", prefix:"r", score:0},
+      {display:"rgba", prefix:"r", score:0},
+      {display:"rosybrown", prefix:"r", score:0},
+      {display:"royalblue", prefix:"r", score:0}],
      "CSS property autocompletion inside a keyframe's frame.");
 
 // The End.

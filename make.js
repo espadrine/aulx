@@ -1,6 +1,6 @@
 // Contrary to popular belief, this file is meant to be a JS code concatenator.
 // It *does not minimize* the code.
-// It is meant to be used in a node environment, as in , `node build.js`.
+// It is meant to be used in a node environment, as in , `node make.js`.
 
 var fs = require('fs');
 var path = require('path');
@@ -22,6 +22,15 @@ function bundle(file, inputs) {
   }(0));
 }
 
+// Union of lists (in the correct order).
+function union(lists) {
+  var ulist = [];
+  for (var i = 0; i < lists.length; i++) {
+    ulist = ulist.concat(lists[i]);
+  }
+  return ulist;
+}
+
 // Web workers for static analysis.
 bundle('demo/parser-worker.js', [
   'node_modules/esprima/esprima.js',
@@ -30,7 +39,7 @@ bundle('demo/parser-worker.js', [
 
 // Target environment: AMD / Node.js / plain old browsers.
 //
-bundle('aulx.js', [
+var aulxBundle = [
   'entrance/umd-begin.js',
   'entrance/completers.js',
 
@@ -47,44 +56,25 @@ bundle('aulx.js', [
   'css/main.js',
   'css/state-machine.js',
   'css/selectors.js',
+  'css/css-token-begin.js',
   'css/tokenizer.js',
+  'css/css-token-end.js',
   'css/properties.js',
   'entrance/compl-end.js',
 
   'entrance/umd-end.js',
-]);
+];
+bundle('aulx.js', aulxBundle);
 
-// Target environment: AMD / Node.js / plain old browsers.
+// Target environment: AMD / plain old browsers.
+// Contains UI code for text editors.
 //
-bundle('aulx-ui.js', [
-  // Aulx.js
-  'entrance/umd-begin.js',
-  'entrance/completers.js',
-
-  // JS completion files.
-  'entrance/compl-begin.js',
-  'js/main.js',
-  'js/static.js',
-  'js/sandbox.js',
-  'js/keyword.js',
-  'entrance/compl-end.js',
-
-  // CSS completion files.
-  'entrance/compl-begin.js',
-  'css/main.js',
-  'css/state-machine.js',
-  'css/selectors.js',
-  'css/tokenizer.js',
-  'css/properties.js',
-  'entrance/compl-end.js',
-
-  'entrance/umd-end.js',
+bundle('aulx-ui.js', union([aulxBundle, [
   'entrance/umd-begin-ui.js',
 
-  // UI files.
   'ui/main.js',
   'ui/popup.js',
   'ui/cm.js',
 
   'entrance/umd-end.js',
-]);
+]]));
