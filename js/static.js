@@ -514,9 +514,12 @@ function typeFromLiteral(store, symbols, node) {
 //          eg. `foo.bar` → ['foo','bar']
 // node: the AST node representing the assigned. May be null.
 // weight: a Number, representing the depth of the scope.
+// FIXME: deal with assignments like `foo().bar = baz`
+// (requires a modification in `symbols`' generators).
 function typeFromAssignment(store, symbols, node, weight) {
   var property, i, substore, nextSubstore, lastSymbol;
   lastSymbol = symbols[symbols.length - 1];
+  if (lastSymbol === undefined) { return; }
   substore = store;
   // Find the substore insertion point.
   // The last symbol will be added separately.
