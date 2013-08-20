@@ -648,8 +648,13 @@ function funcType(store, node, funcStore) {
   if (returnStore === undefined) {
     // There was no return statement. Therefore, no store either.
     returnStore = new TypeStore();
-    returnCaret = { line: statements[statements.length-1].loc.end.line - 1,
-                    ch: statements[statements.length-1].loc.end.column };
+    if (statements.length > 0) {
+      returnCaret = { line: statements[statements.length-1].loc.end.line - 1,
+                      ch: statements[statements.length-1].loc.end.column };
+    } else {
+      returnCaret = { line: node.body.loc.end.line - 1,
+                      ch: node.body.loc.end.column };
+    }
     returnStore = getStaticScope(node.body.body, returnCaret);
   }
   for (var i = 0; i < node.params.length; i++) {
