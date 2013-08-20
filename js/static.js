@@ -447,6 +447,7 @@ function typeFromMember(store, node) {
     symbols.push(node.property.name);
     node = node.object;
   }
+  if (node.property === undefined) { return []; }
   symbols.push(node.property.name);
   if (node.object.type !== "ThisExpression") {
     symbols.push(node.object.name);  // At this point, node is an identifier.
