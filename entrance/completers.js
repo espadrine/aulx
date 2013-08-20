@@ -45,7 +45,7 @@ if (!(Map && Map.prototype.forEach)) {
     set: {
       enumerable: false,
       value: function(key, value) {
-        this[key] = value;
+        if (key !== '__proto__') { this[key] = value; }
       }
     },
     delete: {

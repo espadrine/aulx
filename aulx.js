@@ -59,7 +59,7 @@ if (!(Map && Map.prototype.forEach)) {
     set: {
       enumerable: false,
       value: function(key, value) {
-        this[key] = value;
+        if (key !== '__proto__') { this[key] = value; }
       }
     },
     delete: {
@@ -1134,6 +1134,7 @@ function typeFromThis(funcStore, node) {
     symbols.push(node.property.name);
     node = node.object;
   }
+  if (node.property === undefined) { return []; }
   symbols.push(node.property.name);
   if (node.object.type === "ThisExpression") {
     // Add the `this` properties to the function's generic properties.
