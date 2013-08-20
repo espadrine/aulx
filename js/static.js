@@ -26,9 +26,9 @@ function staticAnalysis(context) {
     // They have a positive score.
     this.staticCandidates.properties.forEach(eachProperty);
     if (this.options.globalIdentifier &&
-        this.staticCandidates.properties[this.options.globalIdentifier]) {
+        this.staticCandidates.properties.get(this.options.globalIdentifier)) {
       // Add properties like `window.|`.
-      this.staticCandidates.properties[this.options.globalIdentifier].properties
+      this.staticCandidates.properties.get(this.options.globalIdentifier).properties
         .forEach(eachProperty);
     }
 
@@ -52,8 +52,8 @@ function staticAnalysis(context) {
       store.type.forEach(function(sourceIndices, funcName) {
         funcStore = this.staticCandidates.properties.get(funcName);
         if (!funcStore) { return; }
-        for (var i = 0; i < store.type[funcName].length; i++) {
-          var sourceIndex = store.type[funcName][i];
+        for (var i = 0; i < store.type.get(funcName).length; i++) {
+          var sourceIndex = store.type.get(funcName)[i];
           // Each sourceIndex corresponds to a source,
           // and the `sources` property is that source.
           if (funcStore.sources) {

@@ -41,48 +41,36 @@ exports = completer;
 // Firefox landed Maps without forEach, hence the odd check for that.
 var Map = this.Map;
 if (!(Map && Map.prototype.forEach)) {
-  var Map = function Map() {};
+  var Map = function Map() { this._m = Object.create(null); };
 
-  Map.prototype = Object.create(null, {
-    get: {
-      enumerable: false,
-      value: function(key) {
-        return this[key];
+  Map.prototype = {
+    get: function(key) {
+      return this._m[key];
+    },
+    has: function(key) {
+      return this._m[key] !== undefined;
+    },
+    set: function(key, value) {
+      if (key !== '__proto__') { this._m[key] = value; }
+    },
+    delete: function(key) {
+      if (this.has(key)) {
+        delete this._m[key];
+        return true;
+      } else {
+        return false;
       }
     },
-    has: {
-      enumerable: false,
-      value: function(key) {
-        return this[key] !== undefined;
+    forEach: function(callbackfn, thisArg) {
+      callbackfn = callbackfn.bind(thisArg);
+      for (var i in this._m) {
+        callbackfn(this._m[i], i, this);
       }
     },
-    set: {
-      enumerable: false,
-      value: function(key, value) {
-        if (key !== '__proto__') { this[key] = value; }
-      }
-    },
-    delete: {
-      enumerable: false,
-      value: function(key) {
-        if (this.has(key)) {
-          delete this[key];
-          return true;
-        } else {
-          return false;
-        }
-      }
-    },
-    forEach: {
-      enumerable: false,
-      value: function(callbackfn, thisArg) {
-        callbackfn = callbackfn.bind(thisArg);
-        for (var i in this) {
-          callbackfn(this[i], i, this);
-        }
-      }
-    },
-  });
+    get toString() {
+      return JSON.stringify(this._m);
+    }
+  };
 }
 
 
@@ -738,9 +726,9 @@ function staticAnalysis(context) {
     // They have a positive score.
     this.staticCandidates.properties.forEach(eachProperty);
     if (this.options.globalIdentifier &&
-        this.staticCandidates.properties[this.options.globalIdentifier]) {
+        this.staticCandidates.properties.get(this.options.globalIdentifier)) {
       // Add properties like `window.|`.
-      this.staticCandidates.properties[this.options.globalIdentifier].properties
+      this.staticCandidates.properties.get(this.options.globalIdentifier).properties
         .forEach(eachProperty);
     }
 
@@ -764,8 +752,8 @@ function staticAnalysis(context) {
       store.type.forEach(function(sourceIndices, funcName) {
         funcStore = this.staticCandidates.properties.get(funcName);
         if (!funcStore) { return; }
-        for (var i = 0; i < store.type[funcName].length; i++) {
-          var sourceIndex = store.type[funcName][i];
+        for (var i = 0; i < store.type.get(funcName).length; i++) {
+          var sourceIndex = store.type.get(funcName)[i];
           // Each sourceIndex corresponds to a source,
           // and the `sources` property is that source.
           if (funcStore.sources) {
