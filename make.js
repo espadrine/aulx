@@ -62,6 +62,12 @@ var aulxBundle = [
   'css/properties.js',
   'entrance/compl-end.js',
 
+  // HTML completion files.
+  'entrance/compl-begin.js',
+  'html/main.js',
+  'html/tokenizer.js',
+  'entrance/compl-end.js',
+
   'entrance/umd-end.js',
 ];
 bundle('aulx.js', aulxBundle);
