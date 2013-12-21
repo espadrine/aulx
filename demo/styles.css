@@ -96,3 +96,12 @@ hgroup {
   width: 50%;
   margin: auto;
 }
+
+a {
+  color: black;
+  font-variant: small-caps;
+}
+a:hover {
+  position: relative;
+  top: -1px;
+}
