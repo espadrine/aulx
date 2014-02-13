@@ -10,7 +10,7 @@
   </head>
 
   <body>
-<textarea id='editor'>
+<textarea id='editorJS'>
 // This demo showcases Aulx's JS autocompletion.
 // F10 to switch to dark theme, F11 to toggle fullscreen
 
@@ -73,12 +73,8 @@ console.log('fib(10) = ' + fibonacci.at(10));
     <script src='node_modules/esprima/esprima.js'></script>
     <script src='aulx-ui.js'></script>
     <script>
-var cmeditor = CodeMirror.fromTextArea(editor, {lineNumbers: true});
-var parserWorker = null;
-try {
-  parserWorker = new Worker('demo/parser-worker.js');
-} catch(ex) {}
-new AulxUI.CM(cmeditor);
+var cmjseditor = CodeMirror.fromTextArea(editorJS, {lineNumbers: true});
+new AulxUI.CM(cmjseditor, { parserWorker: 'demo/parser-worker.js' });
     </script>
   </body>
 

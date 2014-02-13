@@ -1,3 +1,5 @@
+var parserWorker = null;
+
 // Wrapper around the parser (which is located inside a worker).
 // We don't actually use options,
 // but we know to set loc to true inside the worker.
@@ -41,15 +43,20 @@ function AulxUI(aEditor, aOptions) {
   this.mode = aOptions.mode;
   if (this.mode == EDITOR_MODES.JAVASCRIPT) {
     // Initiate Aulx in JS mode.
-    if (parserWorker) {
-      this.aulx = new Aulx.JS({
-        global: global,
-        parse: parseCont,
-        parserContinuation: true,
-        maxEntries : aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS
-      });
-    }
-    else {
+    if (aOptions.parserWorker) {
+      try {
+        parserWorker = new Worker(aOptions.parserWorker);
+        this.aulx = new Aulx.JS({
+          global: global,
+          parse: parseCont,
+          parserContinuation: true,
+          maxEntries : aOptions.numVisibleCompletions || NUM_VISIBLE_COMPLETIONS
+        });
+      } catch(e) {
+        console.error('Aulx tried to use a parser Web Worker.');
+        throw e;
+      }
+    } else {
       // If parser is not available somehow, fallback to sync parsing version of
       // Aulx.JS()
       this.aulx = new Aulx.JS({
