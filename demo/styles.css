@@ -7,18 +7,15 @@
 
 .CodeMirror, .right {
   display: inline-block;
-  min-height: 100%;
-  max-height: 100%;
   position: fixed;
   transition: background 300ms, font-size 300ms, line-height 300ms, width 300ms;
-}
-.CodeMirror * {
-  text-shadow: none !important;
 }
 .right {
   right: 0;
   width: calc(55% - 1px);
   max-width: 55%;
+  min-height: 100%;
+  max-height: 100%;
   border-left: 1px solid rgb(229, 229, 238);
   text-align: center;
   font-family: 'Averia Sans Libre', sans-serif;
@@ -36,6 +33,14 @@
   border-right: 1px solid rgb(229, 229, 238);
   background: white;
   font-size: 14px !important;
+}
+.cm-s-css {
+  top: 50%;
+  height: 50%;
+}
+.cm-s-js {
+  top: 0px;
+  height: 50%;
 }
 .CodeMirror * {
   font-size: 14px !important;

@@ -4,8 +4,7 @@
     <title> Aulx hands-on </title>
     <link href='http://fonts.googleapis.com/css?family=Averia+Sans+Libre'
           rel='stylesheet' type='text/css'>
-    <link rel='stylesheet' href='demo/codemirror/lib/codemirror.css'>
-    <link rel='stylesheet' href='demo/codemirror/theme/solarized.css'>
+    <link rel='stylesheet' href='demo/codemirror.css'>
     <link rel='stylesheet' href='demo/styles.css'>
   </head>
 
@@ -52,6 +51,26 @@ var fibonacci = new Stream(0, function() {
 
 console.log('fib(10) = ' + fibonacci.at(10));
 </textarea>
+<textarea id='editorCSS'>
+/* This one showcases Aulx's CSS autocompletion. */
+html {
+  color: #222;
+  font-size: 1em;
+  line-height: 1.4;
+}
+hr {
+  display: block;
+  height: 1px;
+  border: 0;
+  border-top: 1px solid #ccc;
+  margin: 1em 0;
+  padding: 0;
+}
+::selection {
+  background: #b3d4fc;
+  text-shadow: none;
+}
+</textarea>
     <section class='right'>
       <header>
         <hgroup>
@@ -68,13 +87,16 @@ console.log('fib(10) = ' + fibonacci.at(10));
         to complete what you are writing.
       </p>
     </section>
-    <script src='demo/codemirror/lib/codemirror.js'></script>
-    <script src='demo/codemirror/mode/javascript/javascript.js'></script>
+    <script src='demo/codemirror.js'></script>
     <script src='node_modules/esprima/esprima.js'></script>
     <script src='aulx-ui.js'></script>
     <script>
-var cmjseditor = CodeMirror.fromTextArea(editorJS, {lineNumbers: true});
+var cmjseditor = CodeMirror.fromTextArea(editorJS,
+    {lineNumbers: true, theme: 'default js', mode: 'text/javascript'});
 new AulxUI.CM(cmjseditor, { parserWorker: 'demo/parser-worker.js' });
+var cmcsseditor = CodeMirror.fromTextArea(editorCSS,
+    {lineNumbers: true, theme: 'default css', mode: 'text/css'});
+new AulxUI.CM(cmcsseditor);
     </script>
   </body>
 

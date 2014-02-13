@@ -64,10 +64,9 @@ function AulxUI(aEditor, aOptions) {
         parse: esprima.parse
       });
     }
-  }
-  else if (this.mode == EDITOR_MODES.CSS) {
+  } else if (this.mode == EDITOR_MODES.CSS) {
     this.aulx = new Aulx.CSS({
-      global: global,
+      global: global
     });
   }
 

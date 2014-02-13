@@ -129,13 +129,9 @@ function AulxUICM(aEditor, aOptions) {
 AulxUICM.prototype = {
   getMode: function() {
     var mode = this.editor.getOption("mode");
-    switch(mode) {
-      case "javascript":
-        return EDITOR_MODES.JAVASCRIPT;
-      case "css":
-        return EDITOR_MODES.CSS;
-      case "html":
-        return EDITOR_MODES.HTML;
+    if (/javascript/.test(mode)) {  return EDITOR_MODES.JAVASCRIPT;
+    } else if (/css/.test(mode)) {  return EDITOR_MODES.CSS;
+    } else if (/html/.test(mode)) { return EDITOR_MODES.HTML;
     }
     return null;
   }
