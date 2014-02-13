@@ -45,16 +45,19 @@ Stream.prototype = {
   error: function(cause) {
     this.errors.push((this.line + ":" + this.col) + ": " + cause);
   },
-  emit: function(tok_type) {
+  startToken: function() {
+    this.currentTokenStart = this.index;
+    this.currentTokenStartLine = this.line;
+    this.currentTokenStartCol = this.col;
+  },
+  emit: function(tok_type, data) {
     var tok_data = this.input.slice(this.currentTokenStart, this.index);
     var start = {line: this.currentTokenStartLine,
                  column: this.currentTokenStartCol};
     var end = {line: this.line,
                column: this.col};
-    this.currentTokenStart = this.index;
-    this.currentTokenStartLine = this.line;
-    this.currentTokenStartCol = this.col;
-    return make_token(tok_type, tok_data, start, end);
+    this.startToken();
+    return makeToken(tok_type, data || tok_data, start, end);
   }
 };
 
@@ -68,9 +71,12 @@ Stream.prototype = {
 var token = {
   eof: 0,       // End of file.
   char: 1,      // Character token.
+  charRef: 2,   // Character reference &…; token.
+  startTag: 3,  // Start tag <foo> token.
+  commentTag: 4,// Comment tag <!-- … --> token.
 };
 
-function make_token(type, data, start, end) {
+function makeToken(type, data, start, end) {
   return {
     type: type,
     value: data,
@@ -83,6 +89,10 @@ var state = {
   dataState: dataState,
   characterReferenceInDataState: characterReferenceInDataState,
   tagOpenState: tagOpenState,
+  markupDeclarationOpenState: markupDeclarationOpenState,
+  endTagOpenState: endTagOpenState,
+  tagNameState: tagNameState,
+  bogusCommentState: bogusCommentState,
 };
 
 // All state functions return the function of the next state function to be run.
@@ -120,7 +130,7 @@ function characterReferenceInDataState(stream, tokens) {
     //tokens.push(stream.emit(token.char));
   } else {
     // Ghost token.
-    tokens.push(make_token(token.char, "&",
+    tokens.push(makeToken(token.char, "&",
           {line: stream.line, column: stream.col},
           {line: stream.line, column: stream.col}));
   }
@@ -129,7 +139,49 @@ function characterReferenceInDataState(stream, tokens) {
 
 // 12.2.4.8
 function tagOpenState(stream, tokens) {
+  var ch = stream.char();
+  if (ch === 0x21) {
+    // Exclamation mark (!)
+    return state.markupDeclarationOpenState;
+  } else if (ch === 0x2f) {
+    // Solidus (/)
+    return state.endTagOpenState;
+  } else if (isUppercaseAscii(ch)) {
+    return state.tagNameState;
+  } else if (isLowercaseAscii(ch)) {
+    return state.tagNameState;
+  } else if (ch === 0x3f) {
+    stream.error('Remove the ? at the start of the tag.');
+    return state.bogusCommentState;
+  } else {
+    stream.error('Invalid start of tag.');
+  }
+}
+
+// 12.2.4.45
+function markupDeclarationOpenState(stream, tokens) {
   // TODO
+}
+
+// 12.2.4.9
+function endTagOpenState(stream, tokens) {
+  // TODO
+}
+
+// 12.2.4.10
+function tagNameState(stream, tokens) {
+  // TODO
+}
+
+// 12.2.4.44
+function bogusCommentState(stream, tokens) {
+  var ch = stream.char();
+  while (ch !== 0x3e || ch !== ch) {
+    // While not GREATER-THAN SIGN or EOF.
+    ch = stream.char();
+  }
+  stream.emit(token.commentTag);
+  return stream.dataState;
 }
 
 // 12.2.4.69
@@ -194,7 +246,7 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
         if (number === consumeCharacterReferenceInvalidNumber[i]) {
           // No.
           stream.error('Invalid &#…; token.');
-          return make_token(token.char,
+          return makeToken(token.char,
               consumeCharacterReferenceReplaceInvalidNumber[i],
               {line: stream.line, column: stream.col},
               {line: stream.line, column: stream.col});
@@ -202,13 +254,13 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
       }
       // Other invalid possibilities!
       if (consumeCharacterReferenceFurtherInvalidNumber(number)) {
-        return make_token(token.char,
+        return makeToken(token.char,
             '\ufffd',
             {line: stream.line, column: stream.col},
             {line: stream.line, column: stream.col});
       }
       // We have something valid. Good.
-      return make_token(token.char,
+      return makeToken(token.char,
           String.fromCodePoint(number),
           {line: stream.line, column: stream.col},
           {line: stream.line, column: stream.col});
@@ -240,7 +292,7 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
           stream.error('Missing a semicolon at the end of a &…; token.');
         }
         stream.consume(i - 1);
-        return make_token(token.char,
+        return makeToken(token.char,
             potential,
             {line: stream.line, column: stream.col},
             {line: stream.line, column: stream.col});
@@ -276,6 +328,16 @@ function isDigit(ch) {
 function isHexDigit(ch) {
   // 0..9, A..F, a..f
   return isDigit(ch) || (ch >= 0x41 && ch <= 0x46) || (ch >= 0x61 && ch >= 0x66);
+}
+
+function isUppercaseAscii(ch) {
+  // A-Z
+  return ch >= 0x41 && ch <= 0x5a;
+}
+
+function isLowercaseAscii(ch) {
+  // a-z
+  return ch >= 0x61 && ch <= 0x7a;
 }
 
 if (!String.fromCodePoint) {
