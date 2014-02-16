@@ -15,57 +15,6 @@ function AulxUICM(aEditor, aOptions) {
     aEditor = CodeMirror.fromTextArea(aEditor);
   }
 
-  if (!aOptions.noFullscreen) {
-    // Add a fullscreen button and shortcut
-    function fullscreen(cm) {
-      var wrapper = aEditor.getWrapperElement();
-      wrapper.classList.toggle("fullscreen");
-      setTimeout(function() {
-        aEditor.refresh();
-        aEditor.focus();
-      }, 400);
-    };
-    aEditor.addKeyMap({
-      F11: fullscreen
-    });
-    var fullscrenDiv = document.createElement("div");
-    fullscrenDiv.setAttribute("class" ,"icon fullscreen");
-    fullscrenDiv.setAttribute("title" ,"Toggle Fulscreen Mode");
-    fullscrenDiv.onclick = function() {
-      fullscreen(aEditor);
-    };
-    aEditor.getWrapperElement().appendChild(fullscrenDiv);
-  }
-
-  if (!aOptions.noToggleTheme) {
-    // Add a theme toggle button and shortcut
-    var theme = "default";
-    var switchTheme = function(cm) {
-      if (theme == "default") {
-        aEditor.setOption("theme", theme = (aOptions.toggleTheme ||
-                                            "solarized dark"));
-      }
-      else {
-        aEditor.setOption("theme", theme = "default");
-      }
-      setTimeout(function() {
-        aEditor.refresh();
-        aEditor.focus();
-        this._charWidth = this.getCursorPosition().left/this.getCursor().ch;
-      }.bind(this), 600);
-    }.bind(this);
-    aEditor.addKeyMap({
-      F10: switchTheme
-    });
-    var changeThemeDiv = document.createElement("div");
-    changeThemeDiv.setAttribute("class" ,"icon changeTheme");
-    changeThemeDiv.setAttribute("title" ,"Toggle Dark Theme");
-    changeThemeDiv.onclick = function() {
-      switchTheme(aEditor);
-    };
-    aEditor.getWrapperElement().appendChild(changeThemeDiv);
-  }
-
   // Inheriting from main AulxUI
   this.editor = aEditor;
   this.__proto__ = new AulxUI(aEditor, {mode: this.getMode()});
