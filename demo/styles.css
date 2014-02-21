@@ -40,7 +40,8 @@
 }
 .cm-s-js {
   top: 0px;
-  height: 50%;
+  height: calc(50% - 1px);
+  border-bottom: 1px solid rgb(229, 229, 238);
 }
 .CodeMirror * {
   font-size: 14px !important;
