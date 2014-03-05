@@ -39,8 +39,9 @@ exports = completer;
 // Note: may fail in case you unexpectedly use __proto__ as a key.
 
 // Firefox landed Maps without forEach, hence the odd check for that.
+// Update: the forEach implementation is flawed for now.
 var Map = this.Map;
-if (!(Map && Map.prototype.forEach)) {
+if (true /* !(Map && Map.prototype.forEach) */) {
   var Map = function Map() { this._m = Object.create(null); };
 
   Map.prototype = {
