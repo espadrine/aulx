@@ -3987,7 +3987,7 @@ AulxUI.prototype = {
 
 exports.AulxUI = AulxUI;
 /**
- * Author: Girish Sharma <scrapmachines@gmail.com>
+ * Initial author: Girish Sharma <scrapmachines@gmail.com>
  * https://github.com/scrapmac/snippets/blob/master/selectors.js/selectors.js
  */
 // IE fix for not having addEventListener and removeEventListener
@@ -4157,7 +4157,7 @@ var Popup = function Popup(aDocument, aOptions) {
 #selectorsPopup input:checked:focus + pre label.count:after {
   color: #000;
 }
-*/}.toString().split("/*")[1].split("*/")[0].slice(1)
+*/}.toString().split("\n").slice(1, -1).join('')
    .replace("%FONT%", aOptions.font || "")
    .replace("%FONTSIZE%", aOptions.fontSize || "14");
 
