@@ -17,6 +17,8 @@ function Stream(input) {
 }
 Stream.prototype = {
   peek: function() { return this.input.charCodeAt(this.index); },
+  peekn: function(n) { return this.input.charCodeAt(this.index + n); },
+  slice: function(n) { return this.input.slice(this.index, this.index + n + 1); },
   char: function() {
     var ch = this.input.charCodeAt(this.index);
     if (ch === 13) {
@@ -29,6 +31,8 @@ Stream.prototype = {
       // New line.
       this.line++;
       this.col = 0;
+    } else {
+      this.col++;
     }
     this.index++;
     return ch;
@@ -45,19 +49,38 @@ Stream.prototype = {
   error: function(cause) {
     this.errors.push((this.line + ":" + this.col) + ": " + cause);
   },
+  hasTokenData: function() {
+    return this.index > this.currentTokenStart;
+  },
+  tokenData: function() {
+    return this.input.slice(this.currentTokenStart, this.index);
+  },
   startToken: function() {
     this.currentTokenStart = this.index;
     this.currentTokenStartLine = this.line;
     this.currentTokenStartCol = this.col;
   },
-  emit: function(tok_type, data) {
-    var tok_data = this.input.slice(this.currentTokenStart, this.index);
+  emit: function(tokType, data) {
+    var tokData = this.tokenData();
     var start = {line: this.currentTokenStartLine,
                  column: this.currentTokenStartCol};
     var end = {line: this.line,
                column: this.col};
     this.startToken();
-    return makeToken(tok_type, data || tok_data, start, end);
+    return makeToken(tokType, data || tokData, start, end);
+  },
+
+  // HTML-specific state & functions.
+  openElements: [],
+  htmlFragmentParsingAlgorithm: false,
+  context: null,
+  currentNode: null,
+  adjustedCurrentNode: function() {
+    if (this.htmlFragmentParsingAlgorithm && this.openElements.length === 1) {
+      return this.context;
+    } else {
+      return this.currentNode;
+    }
   }
 };
 
@@ -84,6 +107,12 @@ function makeToken(type, data, start, end) {
   };
 }
 
+function addCharToken(tokens, stream) {
+  if (stream.hasTokenData()) {
+    tokens.push(stream.emit(token.char));
+  }
+}
+
 
 var state = {
   dataState: dataState,
@@ -93,33 +122,40 @@ var state = {
   endTagOpenState: endTagOpenState,
   tagNameState: tagNameState,
   bogusCommentState: bogusCommentState,
+  commentStartState: commentStartState,
+  doctypeState: doctypeState,
+  cdataSectionState: cdataSectionState,
 };
 
 // All state functions return the function of the next state function to be run.
 
 // 12.2.4.1
 function dataState(stream, tokens) {
-  var ch = stream.char();
-  console.log('stream index', stream.index);
+  var ch = stream.peek();
+  var nextState = dataState;
   if (ch === 0x26) {
-    // Ampersand &.
-    return state.characterReferenceInDataState;
+    // Ampersand &
+    addCharToken(tokens, stream);
+    nextState = state.characterReferenceInDataState;
   } else if (ch === 0x3c) {
-    // Less-than sign.
-    return state.tagOpenState;
-  } else if (ch === 0x0) {
-    // NULL.
-    stream.error("NULL character found.");
-    tokens.push(stream.emit(token.char));
-    return dataState;
+    // Less-than sign
+    addCharToken(tokens, stream);
+    nextState = state.tagOpenState;
   } else if (ch !== ch) {
     // EOF
+    addCharToken(tokens, stream);
     tokens.push(stream.emit(token.eof));
-    return null;
+    nextState = null;
+  } else if (ch === 0x0) {
+    // NULL
+    stream.error("NULL character found.");
+    nextState = dataState;
   } else {
-    tokens.push(stream.emit(token.char));
-    return dataState;
+    // normal text
+    nextState = dataState;
   }
+  stream.char();
+  return nextState;
 }
 
 // 12.2.4.2
@@ -127,12 +163,9 @@ function characterReferenceInDataState(stream, tokens) {
   var res = consumeCharacterReference(stream);
   if (res != null) {
     tokens.push(res);
-    //tokens.push(stream.emit(token.char));
   } else {
     // Ghost token.
-    tokens.push(makeToken(token.char, "&",
-          {line: stream.line, column: stream.col},
-          {line: stream.line, column: stream.col}));
+    tokens.push(stream.emit(token.char, "&"));
   }
   return state.dataState;
 }
@@ -140,27 +173,20 @@ function characterReferenceInDataState(stream, tokens) {
 // 12.2.4.8
 function tagOpenState(stream, tokens) {
   var ch = stream.char();
-  if (ch === 0x21) {
-    // Exclamation mark (!)
+  if (ch === 0x21) {            // Exclamation mark (!)
     return state.markupDeclarationOpenState;
-  } else if (ch === 0x2f) {
-    // Solidus (/)
+  } else if (ch === 0x2f) {     // Solidus (/)
     return state.endTagOpenState;
   } else if (isUppercaseAscii(ch)) {
     return state.tagNameState;
   } else if (isLowercaseAscii(ch)) {
     return state.tagNameState;
-  } else if (ch === 0x3f) {
+  } else if (ch === 0x3f) {     // ?
     stream.error('Remove the ? at the start of the tag.');
     return state.bogusCommentState;
   } else {
-    stream.error('Invalid start of tag.');
+    stream.error('Invalid start of tag "' + String.fromCharCode(ch) + '".');
   }
-}
-
-// 12.2.4.45
-function markupDeclarationOpenState(stream, tokens) {
-  // TODO
 }
 
 // 12.2.4.9
@@ -182,6 +208,44 @@ function bogusCommentState(stream, tokens) {
   }
   stream.emit(token.commentTag);
   return stream.dataState;
+}
+
+// 12.2.4.45
+function markupDeclarationOpenState(stream, tokens) {
+  var c0 = stream.peek();
+  var c1 = stream.peekn(1);
+  if (c0 === 0x2d && c1 === 0x2d) {     // HYPHEN-MINUS -
+    stream.consume(2);
+    return state.commentStartState;
+  } else if (/^[dD][oO][cC][tT][yY][pP][eE]$/.test(stream.slice(7))) {
+    // DOCTYPE
+    stream.consume(7);
+    return state.doctypeState;
+  } else if (stream.adjustedCurrentNode() !== null
+          && stream.slice(7) == "[CDATA[") {
+    stream.consume(7);
+    return state.cdataSectionState;
+  } else {
+    stream.error('Invalid character "' + String.fromCharCode(c0) +
+        '" in <! declaration.');
+    return state.bogusCommentState;
+  }
+  // TODO create states.
+}
+
+// 12.2.4.46
+function commentStartState(stream, tokens) {
+  // TODO
+}
+
+// 12.2.4.52
+function doctypeState(stream, tokens) {
+  // TODO
+}
+
+// 12.2.4.68
+function cdataSectionState(stream¸ tokens) {
+  // TODO
 }
 
 // 12.2.4.69
@@ -246,24 +310,24 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
         if (number === consumeCharacterReferenceInvalidNumber[i]) {
           // No.
           stream.error('Invalid &#…; token.');
-          return makeToken(token.char,
-              consumeCharacterReferenceReplaceInvalidNumber[i],
-              {line: stream.line, column: stream.col},
-              {line: stream.line, column: stream.col});
+          return stream.emit(token.charRef, {
+            characters: consumeCharacterReferenceReplaceInvalidNumber[i],
+            value: stream.tokenData()
+          });
         }
       }
       // Other invalid possibilities!
       if (consumeCharacterReferenceFurtherInvalidNumber(number)) {
-        return makeToken(token.char,
-            '\ufffd',
-            {line: stream.line, column: stream.col},
-            {line: stream.line, column: stream.col});
+        return stream.emit(token.charRef, {
+          characters: '\ufffd',
+          value: stream.tokenData()
+        });
       }
       // We have something valid. Good.
-      return makeToken(token.char,
-          String.fromCodePoint(number),
-          {line: stream.line, column: stream.col},
-          {line: stream.line, column: stream.col});
+      return stream.emit(token.charRef, {
+        characters: String.fromCodePoint(number),
+        value: stream.tokenData()
+      });
     } else {
       // Bah! Parse error.
       stream.error('No semicolon in an &…; token.');
@@ -291,11 +355,11 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
           }
           stream.error('Missing a semicolon at the end of a &…; token.');
         }
-        stream.consume(i - 1);
-        return makeToken(token.char,
-            potential,
-            {line: stream.line, column: stream.col},
-            {line: stream.line, column: stream.col});
+        stream.consume(i);
+        return stream.emit(token.charRef, {
+          characters: potential.characters,
+          value: stream.tokenData()
+        });
       }
     }
     // Too bad, this is a mistake!
@@ -362,16 +426,17 @@ if (!String.fromCodePoint) {
 // Main entry point.
 //
 
-function html_tokenize(raw_input) {
+function Tokenize(raw_input) {
   var stream = new Stream(raw_input);
   var tokens = [];
-  var next_state = state.dataState;
-  while (next_state != null) {
-    next_state = next_state(stream, tokens);
+  var nextState = state.dataState;
+  while (nextState != null) {
+    console.log('state:', nextState.name);
+    nextState = nextState(stream, tokens);
   }
   return tokens;
 }
 
 
-exports.html_tokenize = html_tokenize;
+exports.htmlTokenize = Tokenize;
 }(this));
