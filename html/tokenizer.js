@@ -5,17 +5,19 @@
 //
 
 function Stream(input) {
-  this.line = 0;
-  this.col = 0;
-  this.index = 0;
   this.input = input;
-  this.errors = [];
-  // Token-wise.
-  this.currentTokenStart = 0;
-  this.currentTokenStartLine = 0;
-  this.currentTokenStartCol = 0;
+  this.currentToken = this.startToken(token.char);
 }
 Stream.prototype = {
+  line: 0,
+  col: 0,
+  index: 0,
+  input: '',
+  errors: [],
+  // Token-wise.
+  currentToken: null,
+  currentTokenStart: 0,
+
   peek: function() { return this.input.charCodeAt(this.index); },
   peekn: function(n) { return this.input.charCodeAt(this.index + n); },
   slice: function(n) { return this.input.slice(this.index, this.index + n + 1); },
@@ -49,25 +51,28 @@ Stream.prototype = {
   error: function(cause) {
     this.errors.push((this.line + ":" + this.col) + ": " + cause);
   },
-  hasTokenData: function() {
+  hasTokenValue: function() {
     return this.index > this.currentTokenStart;
   },
-  tokenData: function() {
+  tokenValue: function() {
     return this.input.slice(this.currentTokenStart, this.index);
   },
-  startToken: function() {
+  startToken: function(tokType) {
     this.currentTokenStart = this.index;
-    this.currentTokenStartLine = this.line;
-    this.currentTokenStartCol = this.col;
+    this.currentToken = makeToken(tokType, '', null,
+        {line: this.line, column: this.col},
+        {line: this.line, column: this.col});
+    return this.currentToken;
   },
   emit: function(tokType, data) {
-    var tokData = this.tokenData();
-    var start = {line: this.currentTokenStartLine,
-                 column: this.currentTokenStartCol};
-    var end = {line: this.line,
-               column: this.col};
-    this.startToken();
-    return makeToken(tokType, data || tokData, start, end);
+    var token = this.currentToken;
+    token.value = this.tokenValue();
+    token.end.line = this.line;
+    token.end.column = this.col;
+    if (tokType != null) { token.type = tokType; }
+    if (data != null) { token.data = data; }
+    this.startToken(token.char);
+    return token;
   },
 
   // HTML-specific state & functions.
@@ -89,27 +94,40 @@ Stream.prototype = {
 //
 // We are using the rules available for free at <http://www.whatwg.org/C>.
 
+var incr = 0;
 
 // Tokens.
 var token = {
-  eof: 0,       // End of file.
-  char: 1,      // Character token.
-  charRef: 2,   // Character reference &…; token.
-  startTag: 3,  // Start tag <foo> token.
-  commentTag: 4,// Comment tag <!-- … --> token.
+  eof:          incr++, // End of file.
+  char:         incr++, // Characters token.
+  charRef:      incr++, // Character reference &…; token.
+  startTag:     incr++, // Start tag <…> token.
+  commentTag:   incr++, // Comment tag <!-- … --> token.
+  endTag:       incr++, // End tag </…> token.
 };
 
-function makeToken(type, data, start, end) {
+function makeToken(type, value, data, start, end) {
   return {
     type: type,
-    value: data,
-    loc: {start: start, end: end}
+    value: value,
+    data: data,
+    start: start,
+    end: end
   };
 }
 
 function addCharToken(tokens, stream) {
-  if (stream.hasTokenData()) {
-    tokens.push(stream.emit(token.char));
+  if (stream.hasTokenValue()) {
+    var lastToken = tokens[tokens.length - 1];
+    if (lastToken != null && lastToken.type === token.char) {
+      // Integrate in the previous token.
+      lastToken.value += stream.tokenValue();
+      lastToken.end.line = stream.line;
+      lastToken.end.column = stream.col;
+      stream.startToken(token.char);
+    } else {
+      tokens.push(stream.emit(token.char));
+    }
   }
 }
 
@@ -125,6 +143,8 @@ var state = {
   commentStartState: commentStartState,
   doctypeState: doctypeState,
   cdataSectionState: cdataSectionState,
+  beforeAttributeNameState: beforeAttributeNameState,
+  selfClosingStartTagState: selfClosingStartTagState,
 };
 
 // All state functions return the function of the next state function to be run.
@@ -178,24 +198,83 @@ function tagOpenState(stream, tokens) {
   } else if (ch === 0x2f) {     // Solidus (/)
     return state.endTagOpenState;
   } else if (isUppercaseAscii(ch)) {
+    stream.currentToken.type = token.startTag;
+    stream.currentToken.data = String.fromCharCode(ch + 0x20);
     return state.tagNameState;
   } else if (isLowercaseAscii(ch)) {
+    stream.currentToken.type = token.startTag;
+    stream.currentToken.data = String.fromCharCode(ch + 0x20);
     return state.tagNameState;
   } else if (ch === 0x3f) {     // ?
     stream.error('Remove the ? at the start of the tag.');
     return state.bogusCommentState;
   } else {
     stream.error('Invalid start of tag "' + String.fromCharCode(ch) + '".');
+    addCharToken(tokens, stream);
+    return state.dataState;
   }
 }
 
 // 12.2.4.9
 function endTagOpenState(stream, tokens) {
-  // TODO
+  var ch = stream.char();
+  if (isUppercaseAscii(ch)) {
+    stream.currentToken.type = token.endTag;
+    stream.currentToken.data = String.fromCharCode(ch + 0x20);
+    return state.tagNameState;
+  } else if (isLowercaseAscii(ch)) {
+    stream.currentToken.type = token.endTag;
+    stream.currentToken.data = String.fromCharCode(ch);
+    return state.tagNameState;
+  } else if (ch === 0x3e) {     // >
+    stream.error('Invalid end tag "</>".');
+    return state.dataState;
+  } else if (ch === null) {     // EOF
+    stream.error('Invalid end of file in end tag.');
+    addCharToken(tokens, stream);
+    stream.unconsume(1);
+    return state.dataState;
+  } else {
+    stream.error('Invalid "' + String.fromCharCode(ch) + '" in end tag.');
+    return state.bogusCommentState;
+  }
 }
 
 // 12.2.4.10
 function tagNameState(stream, tokens) {
+  var ch = stream.char();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LINE FEED, FORM FEED, SPACE
+    return state.beforeAttributeNameState;
+  } else if (ch === 0x2f) {  // SOLIDUS '/'
+    return state.selfClosingStartTagState;
+  } else if (ch === 0x3e) {  // GREATER-THAN SIGN >
+    stream.emit();
+    return state.dataState;
+  } else if (isUppercaseAscii(ch)) {
+    stream.currentToken.data += String.fromCharCode(ch + 0x20);
+  } else if (ch === 0) {
+    stream.error("Invalid null character in tag name");
+    stream.currentToken.data += String.fromCharCode(0xfffd);
+  } else if (ch !== ch) {  // EOF
+    stream.error("Invalid end of file in tag name");
+    stream.unconsume();
+    return state.dataState;
+  } else {
+    stream.currentToken.data += String.fromCharCode(ch);
+  }
+  return state.tagNameState;
+}
+
+// 12.2.4.34
+function beforeAttributeNameState(stream, tokens) {
+  var ch = stream.char();
+  // TODO
+}
+
+// 12.2.4.43
+function selfClosingStartTagState(stream, tokens) {
+  var ch = stream.char();
   // TODO
 }
 
@@ -244,7 +323,7 @@ function doctypeState(stream, tokens) {
 }
 
 // 12.2.4.68
-function cdataSectionState(stream¸ tokens) {
+function cdataSectionState(stream, tokens) {
   // TODO
 }
 
@@ -310,24 +389,16 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
         if (number === consumeCharacterReferenceInvalidNumber[i]) {
           // No.
           stream.error('Invalid &#…; token.');
-          return stream.emit(token.charRef, {
-            characters: consumeCharacterReferenceReplaceInvalidNumber[i],
-            value: stream.tokenData()
-          });
+          return stream.emit(token.charRef,
+            consumeCharacterReferenceReplaceInvalidNumber[i]);
         }
       }
       // Other invalid possibilities!
       if (consumeCharacterReferenceFurtherInvalidNumber(number)) {
-        return stream.emit(token.charRef, {
-          characters: '\ufffd',
-          value: stream.tokenData()
-        });
+        return stream.emit(token.charRef, '\ufffd');
       }
       // We have something valid. Good.
-      return stream.emit(token.charRef, {
-        characters: String.fromCodePoint(number),
-        value: stream.tokenData()
-      });
+      return stream.emit(token.charRef, String.fromCodePoint(number));
     } else {
       // Bah! Parse error.
       stream.error('No semicolon in an &…; token.');
@@ -356,10 +427,7 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
           stream.error('Missing a semicolon at the end of a &…; token.');
         }
         stream.consume(i);
-        return stream.emit(token.charRef, {
-          characters: potential.characters,
-          value: stream.tokenData()
-        });
+        return stream.emit(token.charRef, potential.characters);
       }
     }
     // Too bad, this is a mistake!
