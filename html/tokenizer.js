@@ -104,6 +104,7 @@ var token = {
   startTag:     incr++, // Start tag <…> token.
   commentTag:   incr++, // Comment tag <!-- … --> token.
   endTag:       incr++, // End tag </…> token.
+  attr:         incr++, // Attribute <a …>.
 };
 
 function makeToken(type, value, data, start, end) {
@@ -144,6 +145,7 @@ var state = {
   doctypeState: doctypeState,
   cdataSectionState: cdataSectionState,
   beforeAttributeNameState: beforeAttributeNameState,
+  attributeNameState: attributeNameState,
   selfClosingStartTagState: selfClosingStartTagState,
 };
 
@@ -245,6 +247,7 @@ function tagNameState(stream, tokens) {
   var ch = stream.char();
   if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
     // TAB, LINE FEED, FORM FEED, SPACE
+    stream.emit();
     return state.beforeAttributeNameState;
   } else if (ch === 0x2f) {  // SOLIDUS '/'
     return state.selfClosingStartTagState;
@@ -268,6 +271,43 @@ function tagNameState(stream, tokens) {
 
 // 12.2.4.34
 function beforeAttributeNameState(stream, tokens) {
+  var ch = stream.char();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LINE FEED, FORM FEED, SPACE
+  } else if (ch == 0x2f) {  // SOLIDUS '/'
+    return state.selfClosingStartTagState;
+  } else if (ch == 0x3e) {  // GREATER-THAN '>'
+    stream.emit();
+    return state.dataState;
+  } else if (isUppercaseAscii(ch)) {
+    stream.currentToken.type = token.attr;
+    stream.currentToken.data = String.fromCharCode(ch + 0x20);
+    return state.attributeNameState;
+  } else if (ch === 0x0) {  // NULL
+    stream.error("Invalid null character before attribute name");
+    stream.currentToken.type = token.attr;
+    stream.currentToken.data = '\ufffd';
+    return state.attributeNameState;
+  } else if (ch === 0x22 || ch === 0x27 || ch === 0x3c || ch === 0x3d) {
+    // QUOTE ", APOSTROPHE ', LESS-THAN, EQUAL
+    stream.error("Invalid character before attribute name: " + String.fromCharCode(ch));
+    stream.currentToken.type = token.attr;
+    stream.currentToken.data = String.fromCharCode(ch);
+    return state.attributeNameState;
+  } else if (ch !== ch) {  // EOF
+    stream.error("Invalid end of file before attribute name");
+    stream.unconsume();
+    return state.dataState;
+  } else {
+    stream.currentToken.type = token.attr;
+    stream.currentToken.data = String.fromCharCode(ch);
+    return state.attributeNameState;
+  }
+  return state.beforeAttributeNameState;
+}
+
+// 12.2.4.35
+function attributeNameState(stream, tokens) {
   var ch = stream.char();
   // TODO
 }
