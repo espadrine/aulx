@@ -57,6 +57,11 @@ Stream.prototype = {
   tokenValue: function() {
     return this.input.slice(this.currentTokenStart, this.index);
   },
+  emitToken: function(tokens, tokType, data) {
+    if (this.hasTokenValue()) {
+      tokens.push(this.emit(tokType, data));
+    }
+  },
   startToken: function(tokType) {
     this.currentTokenStart = this.index;
     this.currentToken = makeToken(tokType, '', null,
@@ -98,13 +103,17 @@ var incr = 0;
 
 // Tokens.
 var token = {
-  eof:          incr++, // End of file.
-  char:         incr++, // Characters token.
-  charRef:      incr++, // Character reference &…; token.
-  startTag:     incr++, // Start tag <…> token.
-  commentTag:   incr++, // Comment tag <!-- … --> token.
-  endTag:       incr++, // End tag </…> token.
-  attr:         incr++, // Attribute <a …>.
+  eof:           incr++, // End of file.
+  char:          incr++, // Characters token.
+  charRef:       incr++, // Character reference &…; token.
+  startTagOpen:  incr++, // Start tag opening bracket.
+  startTag:      incr++, // Start tag <…> token.
+  startTagClose: incr++, // Start tag closing bracket.
+  commentTag:    incr++, // Comment tag <!-- … --> token.
+  endTagOpen:    incr++, // End tag opening bracket </.
+  endTag:        incr++, // End tag </…> token.
+  endTagClose:   incr++, // End tag closing bracket >.
+  attr:          incr++, // Attribute <a …>.
 };
 
 function makeToken(type, value, data, start, end) {
@@ -162,7 +171,9 @@ function dataState(stream, tokens) {
   } else if (ch === 0x3c) {
     // Less-than sign
     addCharToken(tokens, stream);
-    nextState = state.tagOpenState;
+    stream.char();
+    tokens.push(stream.emit(token.startTagOpen));
+    return state.tagOpenState;
   } else if (ch !== ch) {
     // EOF
     addCharToken(tokens, stream);
@@ -205,7 +216,7 @@ function tagOpenState(stream, tokens) {
     return state.tagNameState;
   } else if (isLowercaseAscii(ch)) {
     stream.currentToken.type = token.startTag;
-    stream.currentToken.data = String.fromCharCode(ch + 0x20);
+    stream.currentToken.data = String.fromCharCode(ch);
     return state.tagNameState;
   } else if (ch === 0x3f) {     // ?
     stream.error('Remove the ? at the start of the tag.');
@@ -244,26 +255,33 @@ function endTagOpenState(stream, tokens) {
 
 // 12.2.4.10
 function tagNameState(stream, tokens) {
-  var ch = stream.char();
+  var ch = stream.peek();
   if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
     // TAB, LINE FEED, FORM FEED, SPACE
-    stream.emit();
+    tokens.push(stream.emit());
+    stream.char();
     return state.beforeAttributeNameState;
   } else if (ch === 0x2f) {  // SOLIDUS '/'
+    tokens.push(stream.emit());
+    stream.char();
     return state.selfClosingStartTagState;
   } else if (ch === 0x3e) {  // GREATER-THAN SIGN >
-    stream.emit();
+    tokens.push(stream.emit());
+    stream.char();
+    tokens.push(stream.emit(token.startTagClose));
     return state.dataState;
   } else if (isUppercaseAscii(ch)) {
+    stream.char();
     stream.currentToken.data += String.fromCharCode(ch + 0x20);
   } else if (ch === 0) {
     stream.error("Invalid null character in tag name");
+    stream.char();
     stream.currentToken.data += String.fromCharCode(0xfffd);
   } else if (ch !== ch) {  // EOF
     stream.error("Invalid end of file in tag name");
-    stream.unconsume();
     return state.dataState;
   } else {
+    stream.char();
     stream.currentToken.data += String.fromCharCode(ch);
   }
   return state.tagNameState;
