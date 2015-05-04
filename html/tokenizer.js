@@ -62,6 +62,18 @@ Stream.prototype = {
       tokens.push(this.emit(tokType, data));
     }
   },
+  addToPreviousToken: function(tokens, tokType) {
+    var lastToken = tokens[tokens.length - 1];
+    if (lastToken != null && lastToken.type === tokType) {
+      // Integrate in the previous token.
+      lastToken.value += this.tokenValue();
+      lastToken.end.line = this.line;
+      lastToken.end.column = this.col;
+      this.startToken(token.char);
+    } else {
+      tokens.push(this.emit(tokType));
+    }
+  },
   startToken: function(tokType) {
     this.currentTokenStart = this.index;
     this.currentToken = makeToken(tokType, '', null,
@@ -116,28 +128,21 @@ var token = {
   attr:          incr++, // Attribute <a …>.
 };
 
+function Token(type, value, data, start, end) {
+  this.type = type;
+  this.value = value;
+  this.data = data;
+  this.start = start;
+  this.end = end;
+}
+
 function makeToken(type, value, data, start, end) {
-  return {
-    type: type,
-    value: value,
-    data: data,
-    start: start,
-    end: end
-  };
+  return new Token(type, value, data, start, end);
 }
 
 function addCharToken(tokens, stream) {
   if (stream.hasTokenValue()) {
-    var lastToken = tokens[tokens.length - 1];
-    if (lastToken != null && lastToken.type === token.char) {
-      // Integrate in the previous token.
-      lastToken.value += stream.tokenValue();
-      lastToken.end.line = stream.line;
-      lastToken.end.column = stream.col;
-      stream.startToken(token.char);
-    } else {
-      tokens.push(stream.emit(token.char));
-    }
+    stream.addToPreviousToken(tokens, token.char);
   }
 }
 
@@ -209,6 +214,9 @@ function tagOpenState(stream, tokens) {
   if (ch === 0x21) {            // Exclamation mark (!)
     return state.markupDeclarationOpenState;
   } else if (ch === 0x2f) {     // Solidus (/)
+    var lastToken = tokens[tokens.length - 1];
+    lastToken.type = token.endTagOpen;
+    stream.addToPreviousToken(tokens, token.endTagOpen);
     return state.endTagOpenState;
   } else if (isUppercaseAscii(ch)) {
     stream.currentToken.type = token.startTag;
@@ -266,9 +274,11 @@ function tagNameState(stream, tokens) {
     stream.char();
     return state.selfClosingStartTagState;
   } else if (ch === 0x3e) {  // GREATER-THAN SIGN >
+    var lastToken = tokens[tokens.length - 1];
+    var closeToken = lastToken.type === token.endTagOpen? token.endTagClose: token.startTagClose;
     tokens.push(stream.emit());
     stream.char();
-    tokens.push(stream.emit(token.startTagClose));
+    tokens.push(stream.emit(closeToken));
     return state.dataState;
   } else if (isUppercaseAscii(ch)) {
     stream.char();
