@@ -575,4 +575,5 @@ function Tokenize(raw_input) {
 
 
 exports.htmlTokenize = Tokenize;
+exports.htmlToken = token;
 }(this));
