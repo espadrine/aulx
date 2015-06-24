@@ -57,6 +57,7 @@ Stream.prototype = {
   tokenValue: function() {
     return this.input.slice(this.currentTokenStart, this.index);
   },
+  // FIXME: seems unused.
   emitToken: function(tokens, tokType, data) {
     if (this.hasTokenValue()) {
       tokens.push(this.emit(tokType, data));
@@ -126,6 +127,7 @@ var token = {
   endTag:        incr++, // End tag </…> token.
   endTagClose:   incr++, // End tag closing bracket >.
   attr:          incr++, // Attribute <a …>.
+  attrEq:        incr++, // Attribute equal <a=…>.
 };
 
 function Token(type, value, data, start, end) {
@@ -160,6 +162,8 @@ var state = {
   cdataSectionState: cdataSectionState,
   beforeAttributeNameState: beforeAttributeNameState,
   attributeNameState: attributeNameState,
+  afterAttributeNameState: afterAttributeNameState,
+  beforeAttributeValueState: beforeAttributeValueState,
   selfClosingStartTagState: selfClosingStartTagState,
 };
 
@@ -299,35 +303,38 @@ function tagNameState(stream, tokens) {
 
 // 12.2.4.34
 function beforeAttributeNameState(stream, tokens) {
-  var ch = stream.char();
+  var ch = stream.peek();
   if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
     // TAB, LINE FEED, FORM FEED, SPACE
+    stream.char();
   } else if (ch == 0x2f) {  // SOLIDUS '/'
     return state.selfClosingStartTagState;
   } else if (ch == 0x3e) {  // GREATER-THAN '>'
-    stream.emit();
+    stream.startToken(token.startTagClose);
+    stream.char();
+    tokens.push(stream.emit());
     return state.dataState;
   } else if (isUppercaseAscii(ch)) {
-    stream.currentToken.type = token.attr;
+    stream.startToken(token.attr);
+    stream.char();
     stream.currentToken.data = String.fromCharCode(ch + 0x20);
     return state.attributeNameState;
   } else if (ch === 0x0) {  // NULL
     stream.error("Invalid null character before attribute name");
-    stream.currentToken.type = token.attr;
+    stream.startToken(token.attr);
+    stream.char();
     stream.currentToken.data = '\ufffd';
-    return state.attributeNameState;
-  } else if (ch === 0x22 || ch === 0x27 || ch === 0x3c || ch === 0x3d) {
-    // QUOTE ", APOSTROPHE ', LESS-THAN, EQUAL
-    stream.error("Invalid character before attribute name: " + String.fromCharCode(ch));
-    stream.currentToken.type = token.attr;
-    stream.currentToken.data = String.fromCharCode(ch);
     return state.attributeNameState;
   } else if (ch !== ch) {  // EOF
     stream.error("Invalid end of file before attribute name");
-    stream.unconsume();
     return state.dataState;
   } else {
-    stream.currentToken.type = token.attr;
+    if (ch === 0x22 || ch === 0x27 || ch === 0x3c || ch === 0x3d) {  // " ' < =
+      stream.error("Invalid character before attribute name: " +
+        String.fromCharCode(ch));
+    }
+    stream.startToken(token.attr);
+    stream.char();
     stream.currentToken.data = String.fromCharCode(ch);
     return state.attributeNameState;
   }
@@ -336,6 +343,95 @@ function beforeAttributeNameState(stream, tokens) {
 
 // 12.2.4.35
 function attributeNameState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LINE FEED, FORM FEED, SPACE
+    tokens.push(stream.emit(token.attr));
+    stream.char();
+    return state.afterAttributeNameState;
+  } else if (ch === 0x2f) {  // /
+    tokens.push(stream.emit(token.attr));
+    stream.char();
+    return state.selfClosingStartTagState;
+  } else if (ch === 0x3d) {  // =
+    tokens.push(stream.emit(token.attr));
+    stream.char();
+    return state.beforeAttributeValueState;
+  } else if (ch === 0x3e) {  // >
+    tokens.push(stream.emit(token.attr));
+    stream.char();
+    return state.dataState;
+  } else if (isUppercaseAscii(ch)) {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch + 0x20);
+  } else if (ch === 0) {
+    stream.char();
+    stream.currentToken.data += '\ufffd';
+  } else if (ch !== ch) {  // EOF
+    stream.error("Invalid end of file in attribute");
+    tokens.push(stream.emit(token.attr));
+    return state.dataState;
+  } else {
+    if (ch === 0x22 || ch === 0x27 || ch === 0x3c) {  // " ' <
+      stream.error("Invalid character '" + String.fromCharCode(ch) + "'" +
+        " in attribute");
+    }
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+  }
+  return state.attributeNameState;
+}
+
+// 12.2.4.36
+function afterAttributeNameState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+  } else if (ch === 0x2f) {  // /
+    stream.char();
+    return state.selfClosingStartTagState;
+  } else if (ch === 0x3d) {  // =
+    stream.startToken(token.attrEq);
+    stream.char();
+    tokens.push(stream.emit());
+    return state.beforeAttributeValueState;
+  } else if (ch === 0x3e) {  // >
+    stream.startToken(token.startTagClose);
+    stream.char();
+    tokens.push(stream.emit());
+    return state.dataState;
+  } else if (isUppercaseAscii(ch)) {
+    stream.startToken(token.attr);
+    stream.char();
+    stream.currentToken.data = String.fromCharCode(ch + 0x20);
+    return state.attributeNameState;
+  } else if (ch === 0) {
+    stream.error("Null character after attribute name '" +
+      tokens[tokens.length - 1].value + "'");
+    stream.startToken(token.attr);
+    stream.char();
+    stream.currentToken.data = String.fromCharCode(0xfffd);
+    return state.attributeNameState;
+  } else if (ch !== ch) {  // EOF
+    stream.error("Reached end of file after attribute name");
+    stream.unconsume();
+    return state.dataState;
+  } else {
+    if (ch === 0x22 || ch === 0x27 || ch === 0x3c) {  // " ' <
+      stream.error("Invalid '" + String.fromCharCode(ch) +
+        "' after attribute name '" + tokens[tokens.length - 1].value + "'");
+    }
+    stream.startToken(token.attr);
+    stream.char();
+    stream.currentToken.data = String.fromCharCode(ch);
+    return state.attributeNameState;
+  }
+  return state.afterAttributeNameState;
+}
+
+// 12.2.4.37
+function beforeAttributeValueState(stream, tokens) {
   var ch = stream.char();
   // TODO
 }
@@ -425,7 +521,7 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
         var encodedNumberString = stream.input.slice(
             stream.index - numberSize, stream.index
             );
-        number = parseInt(encodedNumberString, 16);
+        encodedNumber = parseInt(encodedNumberString, 16);
       }
     } else {
       // [ASCII digits]
@@ -445,7 +541,7 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
         var encodedNumberString = stream.input.slice(
             stream.index - numberSize, stream.index
             );
-        number = parseInt(encodedNumberString, 10);
+        encodedNumber = parseInt(encodedNumberString, 10);
       }
     }
     // The next character must be a semicolon.
@@ -454,7 +550,7 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
       stream.char();    // consume it.
       // Is the decoded number valid?
       for (var i = 0; i < consumeCharacterReferenceInvalidNumber.length; i++) {
-        if (number === consumeCharacterReferenceInvalidNumber[i]) {
+        if (encodedNumber === consumeCharacterReferenceInvalidNumber[i]) {
           // No.
           stream.error('Invalid &#…; token.');
           return stream.emit(token.charRef,
@@ -462,11 +558,11 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
         }
       }
       // Other invalid possibilities!
-      if (consumeCharacterReferenceFurtherInvalidNumber(number)) {
+      if (consumeCharacterReferenceFurtherInvalidNumber(encodedNumber)) {
         return stream.emit(token.charRef, '\ufffd');
       }
       // We have something valid. Good.
-      return stream.emit(token.charRef, String.fromCodePoint(number));
+      return stream.emit(token.charRef, String.fromCodePoint(encodedNumber));
     } else {
       // Bah! Parse error.
       stream.error('No semicolon in an &…; token.');

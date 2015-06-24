@@ -11,10 +11,16 @@ var source;
 var caret;
 var tokens;
 
-var jlog = function(data, intro) {
+var nameFromToken = [];
+for (var tokenName in htmlToken) {
+  nameFromToken[htmlToken[tokenName]] = tokenName;
+}
+var tlog = function(tokens, intro) {
   var logged = '';
-  if (intro) { logged += intro + ': '; }
-  logged += JSON.stringify(data);
+  if (intro) { logged += intro + ':\n'; }
+  for (var i = 0; i < tokens.length; i++) {
+    logged += nameFromToken[tokens[i].type] + ': ' + JSON.stringify(tokens[i]) + '\n';
+  }
   console.log(logged);
 }
 
@@ -57,10 +63,19 @@ t.eq(tokens[4].type, htmlToken.endTagOpen, "End tag open");
 t.eq(tokens[5].type, htmlToken.endTag, "End tag");
 t.eq(tokens[5].value, "foo", "End tag content");
 t.eq(tokens[6].type, htmlToken.endTagClose, "End tag close");
+t.eq(tokens[7].type, htmlToken.eof, "EOF");
 
-//source = '<foo bar="baz"></foo>';
-//tokens = htmlTokenize(source);
-jlog(tokens);
+source = '<foo bar >';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.startTagOpen, "Start tag open");
+t.eq(tokens[1].type, htmlToken.startTag, "Start tag");
+t.eq(tokens[2].type, htmlToken.attr, "Attribute");
+t.eq(tokens[2].value, "bar", "Attribute value");
+t.eq(tokens[2].start.column, 5, "Attribute start location");
+t.eq(tokens[2].end.column, 8, "Attribute end location");
+t.eq(tokens[3].type, htmlToken.startTagClose, "Start tag close");
+t.eq(tokens[4].type, htmlToken.eof, "EOF");
+
 
 
 // Testing the autocompletion.
