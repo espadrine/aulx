@@ -122,6 +122,7 @@ var token = {
   startTagOpen:  incr++, // Start tag opening bracket.
   startTag:      incr++, // Start tag <…> token.
   startTagClose: incr++, // Start tag closing bracket.
+  selfClosing:   incr++, // Start tag self closing slash <…/>
   commentTag:    incr++, // Comment tag <!-- … --> token.
   endTagOpen:    incr++, // End tag opening bracket </.
   endTag:        incr++, // End tag </…> token.
@@ -276,6 +277,7 @@ function tagNameState(stream, tokens) {
   } else if (ch === 0x2f) {  // SOLIDUS '/'
     tokens.push(stream.emit());
     stream.char();
+    tokens.push(stream.emit(token.selfClosing));
     return state.selfClosingStartTagState;
   } else if (ch === 0x3e) {  // GREATER-THAN SIGN >
     var lastToken = tokens[tokens.length - 1];
@@ -308,6 +310,9 @@ function beforeAttributeNameState(stream, tokens) {
     // TAB, LINE FEED, FORM FEED, SPACE
     stream.char();
   } else if (ch == 0x2f) {  // SOLIDUS '/'
+    stream.startToken(token.selfClosing);
+    stream.char();
+    tokens.push(stream.emit());
     return state.selfClosingStartTagState;
   } else if (ch == 0x3e) {  // GREATER-THAN '>'
     stream.startToken(token.startTagClose);
@@ -352,6 +357,7 @@ function attributeNameState(stream, tokens) {
   } else if (ch === 0x2f) {  // /
     tokens.push(stream.emit(token.attr));
     stream.char();
+    tokens.push(stream.emit(token.selfClosing));
     return state.selfClosingStartTagState;
   } else if (ch === 0x3d) {  // =
     tokens.push(stream.emit(token.attr));
@@ -389,7 +395,9 @@ function afterAttributeNameState(stream, tokens) {
     // TAB, LF, FF, SPACE
     stream.char();
   } else if (ch === 0x2f) {  // /
+    stream.startToken(token.selfClosing);
     stream.char();
+    tokens.push(stream.emit());
     return state.selfClosingStartTagState;
   } else if (ch === 0x3d) {  // =
     stream.startToken(token.attrEq);
@@ -439,7 +447,19 @@ function beforeAttributeValueState(stream, tokens) {
 // 12.2.4.43
 function selfClosingStartTagState(stream, tokens) {
   var ch = stream.char();
-  // TODO
+  if (ch === 0x3e) {  // >
+    tokens.push(stream.emit(token.startTagClose));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error("End of file in self-closing tag");
+    stream.unconsume();
+    return state.dataState;
+  } else {
+    stream.error("Invalid character '" + String.fromCharCode(ch) +
+      "' in self-closing tag");
+    stream.unconsume();
+    return state.beforeAttributeNameState;
+  }
 }
 
 // 12.2.4.44
