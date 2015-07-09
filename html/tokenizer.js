@@ -96,6 +96,7 @@ Stream.prototype = {
   // HTML-specific state & functions.
   openElements: [],
   htmlFragmentParsingAlgorithm: false,
+  additionalAllowedCharacter: 0,
   context: null,
   currentNode: null,
   adjustedCurrentNode: function() {
@@ -129,6 +130,11 @@ var token = {
   endTagClose:   incr++, // End tag closing bracket >.
   attr:          incr++, // Attribute <a …>.
   attrEq:        incr++, // Attribute equal <a=…>.
+  attrSingleQuotOpen:  incr++, // Attribute single quote <a='>.
+  attrSingleQuotClose: incr++, // Attribute single quote <a=''>.
+  attrDoubleQuotOpen:  incr++, // Attribute double quote <a=">.
+  attrDoubleQuotClose: incr++, // Attribute double quote <a="">.
+  attrValue:     incr++, // Attribute value.
 };
 
 function Token(type, value, data, start, end) {
@@ -166,6 +172,11 @@ var state = {
   afterAttributeNameState: afterAttributeNameState,
   beforeAttributeValueState: beforeAttributeValueState,
   selfClosingStartTagState: selfClosingStartTagState,
+  attributeValueDoubleQuotedState: attributeValueDoubleQuotedState,
+  attributeValueUnquotedState: attributeValueUnquotedState,
+  attributeValueSingleQuotedState: attributeValueSingleQuotedState,
+  afterAttributeValueQuotedState: afterAttributeValueQuotedState,
+  characterReferenceInAttributeValueState: characterReferenceInAttributeValueState,
 };
 
 // All state functions return the function of the next state function to be run.
@@ -361,7 +372,9 @@ function attributeNameState(stream, tokens) {
     return state.selfClosingStartTagState;
   } else if (ch === 0x3d) {  // =
     tokens.push(stream.emit(token.attr));
+    stream.startToken(token.attrEq);
     stream.char();
+    tokens.push(stream.emit());
     return state.beforeAttributeValueState;
   } else if (ch === 0x3e) {  // >
     tokens.push(stream.emit(token.attr));
@@ -440,8 +453,119 @@ function afterAttributeNameState(stream, tokens) {
 
 // 12.2.4.37
 function beforeAttributeValueState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // Tab, LF, FF, Space
+    stream.char();
+  } else if (ch === 0x22) {  // "
+    stream.startToken(token.attrDoubleQuotOpen);
+    stream.char();
+    tokens.push(stream.emit());
+    stream.startToken(token.attrValue);
+    stream.currentToken.data = '';
+    return state.attributeValueDoubleQuotedState;
+  } else if (ch === 0x26) {  // &
+    return state.attributeValueUnquotedState;
+  } else if (ch === 0x27) {  // '
+    stream.startToken(token.attrSingleQuotOpen);
+    stream.char();
+    tokens.push(stream.emit());
+    stream.startToken(token.attrValue);
+    stream.currentToken.data = '';
+    return state.attributeValueSingleQuotedState;
+  } else if (ch === 0) {
+    stream.error("Null character in attribute value after attribute name '" +
+      tokens[tokens.length - 1].value + "'");
+    stream.startToken(token.attr);
+    stream.char();
+    stream.currentToken.data = String.fromCharCode(0xfffd);
+  } else if (ch === 0x3e) {  // >
+    stream.error("Invalid '>' at the start of attribute value");
+    stream.startToken(token.startTagClose);
+    stream.char();
+    tokens.push(stream.emit());
+    return stream.dataState;
+  } else if (ch !== ch) {
+    stream.error("End of file at the start of attribute value");
+    return stream.dataState;
+  } else {
+    if (ch === 0x3c || ch === 0x3d || ch === 0x60) {
+      // < = `
+      stream.error("Invalid '" + String.fromCharCode(ch) +
+        "' at the start of attribute value");
+    }
+    return state.attributeValueUnquotedState;
+  }
+  return state.beforeAttributeValueState;
+}
+
+// 12.2.4.38
+function attributeValueDoubleQuotedState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x22) {  // "
+    tokens.push(stream.emit(token.attrValue));
+    stream.startToken(token.attrDoubleQuotClose);
+    stream.char();
+    tokens.push(stream.emit());
+    return state.afterAttributeValueQuotedState;
+  } else if (ch === 0x26) {  // &
+    stream.char();
+    stream.additionalAllowedCharacter = 0x22;
+    return state.characterReferenceInAttributeValueState;
+  } else if (ch !== ch) {
+    stream.error("End of file at the start of attribute value");
+    return stream.dataState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+  }
+  return state.attributeValueDoubleQuotedState;
+}
+
+// 12.2.4.39
+function attributeValueSingleQuotedState(stream, tokens) {
   var ch = stream.char();
   // TODO
+}
+
+// 12.2.4.40
+function attributeValueUnquotedState(stream, tokens) {
+  var ch = stream.char();
+  // TODO
+}
+
+// 12.2.4.41
+function characterReferenceInAttributeValueState(stream, tokens) {
+  var ch = stream.char();
+  // TODO
+}
+
+// 12.2.4.42
+function afterAttributeValueQuotedState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // Tab, LF, FF, Space
+    stream.char();
+    return state.beforeAttributeNameState;
+  } else if (ch === 0x2f) {  // /
+    stream.startToken(token.selfClosing);
+    stream.char();
+    tokens.push(stream.emit());
+    return state.selfClosingStartTagState;
+  } else if (ch === 0x3e) {  // >
+    stream.startToken(token.startTagClose);
+    stream.char();
+    tokens.push(stream.emit());
+    return state.dataState;
+  } else if (ch !== ch) {
+    stream.error("End of file at the start of attribute value");
+    return statae.dataState;
+  } else {
+    stream.error("Invalid '" + String.fromCharCode(ch) +
+      "' after a doubly quoted attribute value");
+    return state.beforeAttributeNameState;
+  }
+  return state.afterAttributeValueQuotedState;
 }
 
 // 12.2.4.43

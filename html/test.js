@@ -80,6 +80,32 @@ t.eq(tokens[3].end.column, 10, "Attribute end location");
 t.eq(tokens[4].type, htmlToken.startTagClose, "Start tag close");
 t.eq(tokens[5].type, htmlToken.eof, "EOF");
 
+source = '<foo bar="baz">';
+tokens = htmlTokenize(source);
+t.eq(tokens[2].type, htmlToken.attr, "Attribute token before =");
+t.eq(tokens[3].type, htmlToken.attrEq, "= before attribute value");
+t.eq(tokens[3].start.column, 8, "= start column");
+t.eq(tokens[3].end.column, 9, "= end column");
+t.eq(tokens[4].type, htmlToken.attrDoubleQuotOpen,
+  "Opening \" before attribute value");
+t.eq(tokens[4].start.column, 9, "\" start column");
+t.eq(tokens[4].end.column, 10, "\" end column");
+t.eq(tokens[5].type, htmlToken.attrValue, "Attribute value");
+t.eq(tokens[5].data, "baz", "Attribute value data");
+t.eq(tokens[5].start.column, 10, "\" start column");
+t.eq(tokens[5].end.column, 13, "\" end column");
+t.eq(tokens[6].type, htmlToken.attrDoubleQuotClose,
+  "Closing \" after attribute value");
+t.eq(tokens[6].start.column, 13, "Closing \" start column");
+t.eq(tokens[6].end.column, 14, "Closing \" end column");
+t.eq(tokens[7].type, htmlToken.startTagClose,
+  "Closing tag after attribute value");
+t.eq(tokens[8].type, htmlToken.eof, "EOF");
+
+//source = "<foo bar='baz'>";
+//console.log('---');
+//tokens = htmlTokenize(source);
+//tlog(tokens);
 
 
 // Testing the autocompletion.
