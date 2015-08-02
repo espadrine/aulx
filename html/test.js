@@ -102,7 +102,23 @@ t.eq(tokens[7].type, htmlToken.startTagClose,
   "Closing tag after attribute value");
 t.eq(tokens[8].type, htmlToken.eof, "EOF");
 
-//source = "<foo bar='baz'>";
+source = "<foo bar='baz'>";
+tokens = htmlTokenize(source);
+t.eq(tokens[4].type, htmlToken.attrSingleQuotOpen,
+  "Opening \" before attribute value");
+t.eq(tokens[4].start.column, 9, "\" start column");
+t.eq(tokens[4].end.column, 10, "\" end column");
+t.eq(tokens[5].type, htmlToken.attrValue, "Attribute value");
+t.eq(tokens[5].data, "baz", "Attribute value data");
+t.eq(tokens[5].start.column, 10, "\" start column");
+t.eq(tokens[5].end.column, 13, "\" end column");
+t.eq(tokens[6].type, htmlToken.attrSingleQuotClose,
+  "Closing \" after attribute value");
+t.eq(tokens[6].start.column, 13, "Closing \" start column");
+t.eq(tokens[6].end.column, 14, "Closing \" end column");
+t.eq(tokens[8].type, htmlToken.eof, "EOF");
+
+//source = "<foo bar=baz>";
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);

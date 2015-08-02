@@ -524,8 +524,25 @@ function attributeValueDoubleQuotedState(stream, tokens) {
 
 // 12.2.4.39
 function attributeValueSingleQuotedState(stream, tokens) {
-  var ch = stream.char();
-  // TODO
+  var ch = stream.peek();
+  if (ch === 0x27) {  // '
+    tokens.push(stream.emit(token.attrValue));
+    stream.startToken(token.attrSingleQuotClose);
+    stream.char();
+    tokens.push(stream.emit());
+    return state.afterAttributeValueQuotedState;
+  } else if (ch === 0x26) {  // &
+    stream.char();
+    stream.additionalAllowedCharacter = 0x27;
+    return state.characterReferenceInAttributeValueState;
+  } else if (ch !== ch) {
+    stream.error("End of file at the start of attribute value");
+    return stream.dataState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+  }
+  return state.attributeValueSingleQuotedState;
 }
 
 // 12.2.4.40
