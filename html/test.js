@@ -118,7 +118,18 @@ t.eq(tokens[6].start.column, 13, "Closing \" start column");
 t.eq(tokens[6].end.column, 14, "Closing \" end column");
 t.eq(tokens[8].type, htmlToken.eof, "EOF");
 
-//source = "<foo bar=baz>";
+source = '<foo bar=baz>';
+console.log('---');
+tokens = htmlTokenize(source);
+t.eq(tokens[4].type, htmlToken.attrValue, "Unquoted attribute value");
+t.eq(tokens[4].start.column, 9, "Start of unquoted attribute value");
+t.eq(tokens[4].end.column, 12, "End of unquoted attribute value");
+t.eq(tokens[5].type, htmlToken.startTagClose,
+    "Closing tag after unquoted attribute value");
+t.eq(tokens[5].start.column, 12,
+    "Start of closing tag after unquoted attribute value");
+
+//source = '<foo bar=a&amp;b>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);

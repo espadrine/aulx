@@ -489,10 +489,14 @@ function beforeAttributeValueState(stream, tokens) {
     stream.error("End of file at the start of attribute value");
     return stream.dataState;
   } else {
+    stream.startToken(token.attrValue);
+    stream.currentToken.data = '';
     if (ch === 0x3c || ch === 0x3d || ch === 0x60) {
       // < = `
       stream.error("Invalid '" + String.fromCharCode(ch) +
         "' at the start of attribute value");
+    } else {
+      stream.char();
     }
     return state.attributeValueUnquotedState;
   }
@@ -547,8 +551,38 @@ function attributeValueSingleQuotedState(stream, tokens) {
 
 // 12.2.4.40
 function attributeValueUnquotedState(stream, tokens) {
-  var ch = stream.char();
-  // TODO
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // Tab, LF, FF, Space
+    stream.char();
+    return state.beforeAttributeNameState;
+  } else if (ch === 0x26) {  // &
+    stream.char();
+    return state.characterReferenceInAttributeValueState;
+  } else if (ch === 0x3e) {  // >
+    tokens.push(stream.emit(token.attrValue));
+    stream.startToken(token.startTagClose);
+    stream.char();
+    tokens.push(stream.emit());
+    return state.dataState;
+  } else if (ch === 0) {  // NULL
+    stream.char();
+    stream.error("Null character at the start of unquoted attribute value");
+    stream.currentToken.data += String.fromCharCode(0xfffd);
+  } else if (ch !== ch) {
+    stream.error("End of file at the start of unquoted attribute value");
+    return stream.dataState;
+  } else {
+    if (ch === 0x22 || ch === 0x27 || ch === 0x3c || ch === 0x3d
+      || ch === 0x60) {
+      // " ' < = `
+      stream.error("This character is in an unquoted attribute: '"
+          + String.fromCharCode(ch) + "'");
+    }
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+  }
+  return state.attributeValueUnquotedState;
 }
 
 // 12.2.4.41
