@@ -465,6 +465,8 @@ function beforeAttributeValueState(stream, tokens) {
     stream.currentToken.data = '';
     return state.attributeValueDoubleQuotedState;
   } else if (ch === 0x26) {  // &
+    stream.startToken(token.attrValue);
+    stream.currentToken.data = '';
     return state.attributeValueUnquotedState;
   } else if (ch === 0x27) {  // '
     stream.startToken(token.attrSingleQuotOpen);
@@ -490,7 +492,7 @@ function beforeAttributeValueState(stream, tokens) {
     return stream.dataState;
   } else {
     stream.startToken(token.attrValue);
-    stream.currentToken.data = '';
+    stream.currentToken.data = String.fromCharCode(ch);
     if (ch === 0x3c || ch === 0x3d || ch === 0x60) {
       // < = `
       stream.error("Invalid '" + String.fromCharCode(ch) +
@@ -557,6 +559,8 @@ function attributeValueUnquotedState(stream, tokens) {
     stream.char();
     return state.beforeAttributeNameState;
   } else if (ch === 0x26) {  // &
+    tokens.push(stream.emit(token.attrValue));
+    stream.startToken(token.char);
     stream.char();
     return state.characterReferenceInAttributeValueState;
   } else if (ch === 0x3e) {  // >
@@ -587,8 +591,15 @@ function attributeValueUnquotedState(stream, tokens) {
 
 // 12.2.4.41
 function characterReferenceInAttributeValueState(stream, tokens) {
-  var ch = stream.char();
-  // TODO
+  var res = consumeCharacterReference(stream, true);
+  if (res != null) {
+    tokens.push(res);
+    stream.currentToken.data = "";
+  } else {
+    // Ghost token.
+    stream.currentToken.data = "&";
+  }
+  return state.attributeValueUnquotedState;
 }
 
 // 12.2.4.42
@@ -687,7 +698,8 @@ function cdataSectionState(stream, tokens) {
 }
 
 // 12.2.4.69
-function consumeCharacterReference(stream, additionalAllowedCharacter) {
+function consumeCharacterReference(stream, isAttribute) {
+  var additionalAllowedCharacter = stream.additionalAllowedCharacter;
   var ch = stream.peek();
   if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20 || ch === 0x3c || ch === 0x26 || ch !== ch || ch === additionalAllowedCharacter) {
     // TAB LF FF SPACE LESS-THAN AMPERSAND EOF AdditionalAllowedCharacter
@@ -768,20 +780,21 @@ function consumeCharacterReference(stream, additionalAllowedCharacter) {
     // The minimum token is '&gt', the maximum is
     // '&CounterClockwiseContourIntegral;'
     for (var i = 32; i >= 2; i--) {
-      var potential = consumeCharacterReferenceTable[
-        '&' + stream.input.slice(stream.index, stream.index + i)
-      ];
+      var reference = stream.input.slice(stream.index, stream.index + i);
+      var potential = consumeCharacterReferenceTable['&' + reference];
       if (potential != null) {
-        // We have a winner! eg, '&gt;' → potential = 'gt;'.
-        if (potential[potential.length-1] !== ';') {
+        // We have a winner! eg, '&gt;' → reference = 'gt;'.
+        if (reference[reference.length-1] !== ';') {
           // Slightly invalid production.
-          if (/[a-zA-Z0-9]/.test(
-                stream.input.slice(stream.index + i, stream.index + i + 1))) {
-            return;
-          } else if (stream.input
-              .slice(stream.index + i, stream.index + i + 1) === '=') {
-            stream.error('A &…; token without the ; has an = after it.');
-            return;
+          if (isAttribute) {
+            if (/[a-zA-Z0-9]/.test(
+                  stream.input.slice(stream.index + i, stream.index + i + 1))) {
+              return;
+            } else if (stream.input
+                .slice(stream.index + i, stream.index + i + 1) === '=') {
+              stream.error('A &…; token without the ; has an = after it.');
+              return;
+            }
           }
           stream.error('Missing a semicolon at the end of a &…; token.');
         }

@@ -119,9 +119,9 @@ t.eq(tokens[6].end.column, 14, "Closing \" end column");
 t.eq(tokens[8].type, htmlToken.eof, "EOF");
 
 source = '<foo bar=baz>';
-console.log('---');
 tokens = htmlTokenize(source);
 t.eq(tokens[4].type, htmlToken.attrValue, "Unquoted attribute value");
+t.eq(tokens[4].data, "baz", "Unquoted attribute value data");
 t.eq(tokens[4].start.column, 9, "Start of unquoted attribute value");
 t.eq(tokens[4].end.column, 12, "End of unquoted attribute value");
 t.eq(tokens[5].type, htmlToken.startTagClose,
@@ -129,7 +129,25 @@ t.eq(tokens[5].type, htmlToken.startTagClose,
 t.eq(tokens[5].start.column, 12,
     "Start of closing tag after unquoted attribute value");
 
-//source = '<foo bar=a&amp;b>';
+source = '<foo bar=a&amp;b>';
+tokens = htmlTokenize(source);
+t.eq(tokens[4].type, htmlToken.attrValue,
+    "Attribute value before character reference");
+t.eq(tokens[4].data, "a", "Attribute value data before character reference");
+t.eq(tokens[4].end.column, 10,
+    "Attribute value before character reference ends before it");
+t.eq(tokens[5].type, htmlToken.charRef, "Character reference in attribute");
+t.eq(tokens[5].value, "&amp;", "Character reference value in attribute");
+t.eq(tokens[5].data, "&", "Character reference data in attribute");
+t.eq(tokens[5].start.column, 10, "Character reference start in attribute");
+t.eq(tokens[5].end.column, 15, "Character reference end in attribute");
+t.eq(tokens[6].type, htmlToken.attrValue,
+    "Attribute value after character reference");
+t.eq(tokens[6].data, "b", "Attribute value data after character reference");
+t.eq(tokens[6].start.column, 15,
+    "Attribute value after character reference starts after it");
+
+//source = '<foo bar=a&ampb>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
