@@ -46,6 +46,13 @@ t.eq(tokens[3].type, htmlToken.eof, "EOF token");
 t.eq(tokens[3].start.column, 12, "EOF token starts at the end");
 t.eq(tokens[3].end.column, 12, "EOF token ends at the end");
 
+source = 'foo &smth; bar';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.char, "Non-character reference token");
+t.eq(tokens[0].value, "foo &smth; bar",
+    "Non-character reference value contains characters");
+t.eq(tokens[0].data, null, "Non-character reference data contains null");
+
 source = '<foo> bar </foo>';
 tokens = htmlTokenize(source);
 t.eq(tokens[0].type, htmlToken.startTagOpen, "Start tag open");

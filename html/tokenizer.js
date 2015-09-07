@@ -68,9 +68,12 @@ Stream.prototype = {
     if (lastToken != null && lastToken.type === tokType) {
       // Integrate in the previous token.
       lastToken.value += this.tokenValue();
+      if (lastToken.data != null) {
+        lastToken.data += this.currentToken.data;
+      }
       lastToken.end.line = this.line;
       lastToken.end.column = this.col;
-      this.startToken(token.char);
+      this.startToken(token.tokType);
     } else {
       tokens.push(this.emit(tokType));
     }
@@ -155,6 +158,12 @@ function addCharToken(tokens, stream) {
   }
 }
 
+function addAttrValueToken(tokens, stream) {
+  if (stream.hasTokenValue()) {
+    stream.addToPreviousToken(tokens, token.attrValue);
+  }
+}
+
 
 var state = {
   dataState: dataState,
@@ -219,7 +228,7 @@ function characterReferenceInDataState(stream, tokens) {
     tokens.push(res);
   } else {
     // Ghost token.
-    tokens.push(stream.emit(token.char, "&"));
+    addCharToken(tokens, stream);
   }
   return state.dataState;
 }
@@ -509,7 +518,7 @@ function beforeAttributeValueState(stream, tokens) {
 function attributeValueDoubleQuotedState(stream, tokens) {
   var ch = stream.peek();
   if (ch === 0x22) {  // "
-    tokens.push(stream.emit(token.attrValue));
+    addAttrValueToken(tokens, stream);
     stream.startToken(token.attrDoubleQuotClose);
     stream.char();
     tokens.push(stream.emit());
@@ -532,7 +541,7 @@ function attributeValueDoubleQuotedState(stream, tokens) {
 function attributeValueSingleQuotedState(stream, tokens) {
   var ch = stream.peek();
   if (ch === 0x27) {  // '
-    tokens.push(stream.emit(token.attrValue));
+    addAttrValueToken(tokens, stream);
     stream.startToken(token.attrSingleQuotClose);
     stream.char();
     tokens.push(stream.emit());
@@ -559,12 +568,11 @@ function attributeValueUnquotedState(stream, tokens) {
     stream.char();
     return state.beforeAttributeNameState;
   } else if (ch === 0x26) {  // &
-    tokens.push(stream.emit(token.attrValue));
-    stream.startToken(token.char);
+    addAttrValueToken(tokens, stream);
     stream.char();
     return state.characterReferenceInAttributeValueState;
   } else if (ch === 0x3e) {  // >
-    tokens.push(stream.emit(token.attrValue));
+    addAttrValueToken(tokens, stream);
     stream.startToken(token.startTagClose);
     stream.char();
     tokens.push(stream.emit());
