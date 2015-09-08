@@ -53,6 +53,11 @@ t.eq(tokens[0].value, "foo &smth; bar",
     "Non-character reference value contains characters");
 t.eq(tokens[0].data, null, "Non-character reference data contains null");
 
+source = 'foo &ampbar>';
+tokens = htmlTokenize(source);
+t.eq(tokens[1].type, htmlToken.charRef,
+    "Character reference token without ; followed by letters");
+
 source = '<foo> bar </foo>';
 tokens = htmlTokenize(source);
 t.eq(tokens[0].type, htmlToken.startTagOpen, "Start tag open");
