@@ -159,7 +159,43 @@ t.eq(tokens[6].data, "b", "Attribute value data after character reference");
 t.eq(tokens[6].start.column, 15,
     "Attribute value after character reference starts after it");
 
-//source = '<foo bar=a&ampb>';
+source = '<foo bar=a&ampb>';
+tokens = htmlTokenize(source);
+t.eq(tokens[4].type, htmlToken.attrValue,
+    "Attribute value with character reference without ; " +
+    "followed by letter");
+t.eq(tokens[4].value, "a&ampb",
+    "Attribute value with character reference without ; " +
+    "followed by letter has the correct value");
+t.eq(tokens[4].data, "a&ampb",
+    "Attribute value with character reference without ; " +
+    "followed by letter has the correct data");
+t.eq(tokens[4].start.column, 9,
+    "Attribute value with character reference without ; " +
+    "followed by letter starts correctly");
+t.eq(tokens[4].end.column, 15,
+    "Attribute value with character reference without ; " +
+    "followed by letter ends correctly");
+
+source = '<foo bar=a&amp=>';
+tokens = htmlTokenize(source);
+t.eq(tokens[4].type, htmlToken.attrValue,
+    "Attribute value with character reference without ; " +
+    "followed by =");
+t.eq(tokens[4].value, "a&amp=",
+    "Attribute value with character reference without ; " +
+    "followed by = has the correct value");
+t.eq(tokens[4].data, "a&amp=",
+    "Attribute value with character reference without ; " +
+    "followed by = has the correct data");
+t.eq(tokens[4].start.column, 9,
+    "Attribute value with character reference without ; " +
+    "followed by = starts correctly");
+t.eq(tokens[4].end.column, 15,
+    "Attribute value with character reference without ; " +
+    "followed by = ends correctly");
+
+//source = '<!doctype html>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
