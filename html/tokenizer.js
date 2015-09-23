@@ -138,6 +138,9 @@ var token = {
   attrDoubleQuotOpen:  incr++, // Attribute double quote <a=">.
   attrDoubleQuotClose: incr++, // Attribute double quote <a="">.
   attrValue:     incr++, // Attribute value.
+  commentOpen:   incr++, // Start of comment <!--
+  comment:       incr++, // Comment <!--…-->
+  commentClose:  incr++, // End of comment -->
 };
 
 function Token(type, value, data, start, end) {
@@ -174,6 +177,10 @@ var state = {
   tagNameState: tagNameState,
   bogusCommentState: bogusCommentState,
   commentStartState: commentStartState,
+  commentStartDashState: commentStartDashState,
+  commentState: commentState,
+  commentEndState: commentEndState,
+  commentEndBangState: commentEndBangState,
   doctypeState: doctypeState,
   cdataSectionState: cdataSectionState,
   beforeAttributeNameState: beforeAttributeNameState,
@@ -237,6 +244,8 @@ function characterReferenceInDataState(stream, tokens) {
 function tagOpenState(stream, tokens) {
   var ch = stream.char();
   if (ch === 0x21) {            // Exclamation mark (!)
+    var lastToken = tokens[tokens.length - 1];
+    lastToken.type = token.commentOpen;
     return state.markupDeclarationOpenState;
   } else if (ch === 0x2f) {     // Solidus (/)
     var lastToken = tokens[tokens.length - 1];
@@ -312,7 +321,7 @@ function tagNameState(stream, tokens) {
   } else if (ch === 0) {
     stream.error("Invalid null character in tag name");
     stream.char();
-    stream.currentToken.data += String.fromCharCode(0xfffd);
+    stream.currentToken.data += '\ufffd';
   } else if (ch !== ch) {  // EOF
     stream.error("Invalid end of file in tag name");
     return state.dataState;
@@ -441,7 +450,7 @@ function afterAttributeNameState(stream, tokens) {
       tokens[tokens.length - 1].value + "'");
     stream.startToken(token.attr);
     stream.char();
-    stream.currentToken.data = String.fromCharCode(0xfffd);
+    stream.currentToken.data = '\ufffd';
     return state.attributeNameState;
   } else if (ch !== ch) {  // EOF
     stream.error("Reached end of file after attribute name");
@@ -489,7 +498,7 @@ function beforeAttributeValueState(stream, tokens) {
       tokens[tokens.length - 1].value + "'");
     stream.startToken(token.attr);
     stream.char();
-    stream.currentToken.data = String.fromCharCode(0xfffd);
+    stream.currentToken.data = '\ufffd';
   } else if (ch === 0x3e) {  // >
     stream.error("Invalid '>' at the start of attribute value");
     stream.startToken(token.startTagClose);
@@ -580,7 +589,7 @@ function attributeValueUnquotedState(stream, tokens) {
   } else if (ch === 0) {  // NULL
     stream.char();
     stream.error("Null character at the start of unquoted attribute value");
-    stream.currentToken.data += String.fromCharCode(0xfffd);
+    stream.currentToken.data += '\ufffd';
   } else if (ch !== ch) {
     stream.error("End of file at the start of unquoted attribute value");
     return stream.dataState;
@@ -629,7 +638,7 @@ function afterAttributeValueQuotedState(stream, tokens) {
     return state.dataState;
   } else if (ch !== ch) {
     stream.error("End of file at the start of attribute value");
-    return statae.dataState;
+    return state.dataState;
   } else {
     stream.error("Invalid '" + String.fromCharCode(ch) +
       "' after a doubly quoted attribute value");
@@ -663,7 +672,7 @@ function bogusCommentState(stream, tokens) {
     // While not GREATER-THAN SIGN or EOF.
     ch = stream.char();
   }
-  stream.emit(token.commentTag);
+  stream.emit(token.comment);
   return stream.dataState;
 }
 
@@ -673,10 +682,12 @@ function markupDeclarationOpenState(stream, tokens) {
   var c1 = stream.peekn(1);
   if (c0 === 0x2d && c1 === 0x2d) {     // HYPHEN-MINUS -
     stream.consume(2);
+    stream.addToPreviousToken(tokens, token.commentOpen);
+    stream.startToken(token.comment);
     return state.commentStartState;
-  } else if (/^[dD][oO][cC][tT][yY][pP][eE]$/.test(stream.slice(7))) {
+  } else if (/^[dD][oO][cC][tT][yY][pP][eE]$/.test(stream.slice(6))) {
     // DOCTYPE
-    stream.consume(7);
+    stream.consume(6);
     return state.doctypeState;
   } else if (stream.adjustedCurrentNode() !== null
           && stream.slice(7) == "[CDATA[") {
@@ -687,11 +698,95 @@ function markupDeclarationOpenState(stream, tokens) {
         '" in <! declaration.');
     return state.bogusCommentState;
   }
-  // TODO create states.
 }
 
 // 12.2.4.46
 function commentStartState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x2d) {      // HYPEN-MINUS -
+    stream.char();
+    return state.commentStartDashState;
+  } else if (ch === 0) {  // NULL
+    stream.char();
+    stream.error('Null character in comment');
+    stream.currentToken.data += '\ufffd';
+    return state.commentState;
+  } else if (ch !== ch) { // EOF
+    stream.error("End of file in comment");
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+    return state.commentState;
+  }
+}
+
+// 12.2.4.47
+function commentStartDashState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x2d) {        // HYPEN-MINUS -
+    stream.char();
+    return state.commentEndState;
+  } else if (ch === 0) {    // NULL
+    stream.char();
+    stream.error('Null character in empty comment');
+    stream.currentToken.data += '-\ufffd';
+    return state.commentState;
+  } else if (ch === 0x3e) { // >
+    stream.char();
+    stream.error('End of comment lacks a dash `-`');
+    tokens.push(stream.emit(token.commentClose));
+    return state.dataState;
+  } else if (ch !== ch) {   // EOF
+    stream.error("End of file at end of comment");
+    tokens.push(stream.emit(token.commentClose));
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.currentToken.data += '-' + String.fromCharCode(ch);
+    return state.commentState;
+  }
+  // TODO
+}
+
+// 12.2.4.48
+function commentState(stream, tokens) {
+  // TODO
+}
+
+// 12.2.4.50
+function commentEndState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x3e) {        // >
+    stream.char();
+    tokens.push(stream.emit(token.commentClose));
+    return state.dataState;
+  } else if (ch === 0) {    // NULL
+    stream.char();
+    stream.error('Null character after two dashes in a comment');
+    stream.currentToken.data += '--\ufffd';
+    return state.commentState;
+  } else if (ch === 0x21) { // !
+    stream.char();
+    stream.error('Incorrect --! end of a comment');
+    return state.commentEndBangState;
+  } else if (ch === 0x2d) { // HYPEN-MINUS -
+    stream.char();
+    stream.error('Incorrect --- in a comment');
+    stream.currentToken.data += '-';
+    return state.commentEndState;
+  } else if (ch !== ch) {   // EOF
+    stream.error("End of file at the very end of comment");
+    tokens.push(stream.emit(token.commentClose));
+    return state.dataState;
+  } else {
+    stream.currentToken.data += '-' + String.fromCharCode(ch);
+    return state.commentState;
+  }
+}
+
+// 12.2.4.51
+function commentEndBangState(stream, tokens) {
   // TODO
 }
 
