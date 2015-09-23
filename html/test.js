@@ -195,7 +195,19 @@ t.eq(tokens[4].end.column, 15,
     "Attribute value with character reference without ; " +
     "followed by = ends correctly");
 
-//source = '<!doctype html>';
+source = '<!---->';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.commentOpen, "Empty comment open");
+t.eq(tokens[0].start.column, 0, "Empty comment open start");
+t.eq(tokens[0].end.column, 4, "Empty comment open end");
+t.eq(tokens[1].type, htmlToken.commentClose, "Empty comment close");
+t.eq(tokens[1].start.column, 4, "Empty comment close start");
+t.eq(tokens[1].end.column, 7, "Empty comment close end");
+
+//source = '<!-- --!>';
+//source = '<!--->';
+
+//source = '<!-- comment --> <foo/>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
