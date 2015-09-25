@@ -16,6 +16,7 @@ Stream.prototype = {
   errors: [],
   // Token-wise.
   currentToken: null,
+  previousTokenStart: 0,
   currentTokenStart: 0,
 
   peek: function() { return this.input.charCodeAt(this.index); },
@@ -57,18 +58,13 @@ Stream.prototype = {
   tokenValue: function() {
     return this.input.slice(this.currentTokenStart, this.index);
   },
-  // FIXME: seems unused.
-  emitToken: function(tokens, tokType, data) {
-    if (this.hasTokenValue()) {
-      tokens.push(this.emit(tokType, data));
-    }
-  },
   addToPreviousToken: function(tokens, tokType) {
     var lastToken = tokens[tokens.length - 1];
     if (lastToken != null && lastToken.type === tokType) {
       // Integrate in the previous token.
       lastToken.value += this.tokenValue();
-      if (lastToken.data != null) {
+      if (Object(lastToken.data) instanceof String
+       && Object(this.currentToken.data) instanceof String) {
         lastToken.data += this.currentToken.data;
       }
       lastToken.end.line = this.line;
@@ -76,6 +72,18 @@ Stream.prototype = {
       this.startToken(token.tokType);
     } else {
       tokens.push(this.emit(tokType));
+    }
+  },
+  resumePreviousToken: function(tokens) {
+    var lastToken = tokens[tokens.length - 1];
+    if (lastToken != null) {
+      this.currentTokenStart = this.previousTokenStart;
+      if (Object(lastToken.data) instanceof String
+       && Object(this.currentToken.data) instanceof String) {
+        lastToken.data += this.currentToken.data;
+      }
+      this.currentToken = lastToken;
+      tokens.pop();
     }
   },
   startToken: function(tokType) {
@@ -86,6 +94,7 @@ Stream.prototype = {
     return this.currentToken;
   },
   emit: function(tokType, data) {
+    this.previousTokenStart = this.currentTokenStart;
     var token = this.currentToken;
     token.value = this.tokenValue();
     token.end.line = this.line;
@@ -144,8 +153,8 @@ var token = {
 };
 
 function Token(type, value, data, start, end) {
-  this.type = type;
-  this.value = value;
+  this.type = +type;
+  this.value = ''+value;
   this.data = data;
   this.start = start;
   this.end = end;
@@ -180,6 +189,7 @@ var state = {
   commentStartDashState: commentStartDashState,
   commentState: commentState,
   commentEndState: commentEndState,
+  commentEndDashState: commentEndDashState,
   commentEndBangState: commentEndBangState,
   doctypeState: doctypeState,
   cdataSectionState: cdataSectionState,
@@ -611,10 +621,10 @@ function characterReferenceInAttributeValueState(stream, tokens) {
   var res = consumeCharacterReference(stream, true);
   if (res != null) {
     tokens.push(res);
-    stream.currentToken.data = "";
+    stream.currentToken.data = '';
   } else {
     // Ghost token.
-    stream.currentToken.data = "&";
+    stream.currentToken.data = '&';
   }
   return state.attributeValueUnquotedState;
 }
@@ -703,20 +713,20 @@ function markupDeclarationOpenState(stream, tokens) {
 // 12.2.4.46
 function commentStartState(stream, tokens) {
   var ch = stream.peek();
-  if (ch === 0x2d) {      // HYPEN-MINUS -
+  if (ch === 0x2d) {      // HYPHEN-MINUS -
     stream.char();
     return state.commentStartDashState;
-  } else if (ch === 0) {  // NULL
-    stream.char();
-    stream.error('Null character in comment');
-    stream.currentToken.data += '\ufffd';
-    return state.commentState;
   } else if (ch !== ch) { // EOF
-    stream.error("End of file in comment");
+    stream.error('End of file in comment');
     return state.dataState;
   } else {
     stream.char();
-    stream.currentToken.data += String.fromCharCode(ch);
+    if (ch === 0) {  // NULL
+      stream.error('Null character in comment');
+      stream.currentToken.data = '\ufffd';
+    } else {
+      stream.currentToken.data = String.fromCharCode(ch);
+    }
     return state.commentState;
   }
 }
@@ -724,7 +734,7 @@ function commentStartState(stream, tokens) {
 // 12.2.4.47
 function commentStartDashState(stream, tokens) {
   var ch = stream.peek();
-  if (ch === 0x2d) {        // HYPEN-MINUS -
+  if (ch === 0x2d) {        // HYPHEN-MINUS -
     stream.char();
     return state.commentEndState;
   } else if (ch === 0) {    // NULL
@@ -738,7 +748,7 @@ function commentStartDashState(stream, tokens) {
     tokens.push(stream.emit(token.commentClose));
     return state.dataState;
   } else if (ch !== ch) {   // EOF
-    stream.error("End of file at end of comment");
+    stream.error('End of file at end of comment');
     tokens.push(stream.emit(token.commentClose));
     return state.dataState;
   } else {
@@ -746,12 +756,52 @@ function commentStartDashState(stream, tokens) {
     stream.currentToken.data += '-' + String.fromCharCode(ch);
     return state.commentState;
   }
-  // TODO
 }
 
 // 12.2.4.48
 function commentState(stream, tokens) {
-  // TODO
+  var ch = stream.peek();
+  if (ch === 0x2d) {      // HYPHEN-MINUS -
+    tokens.push(stream.emit(token.comment));
+    stream.char();
+    return state.commentEndDashState;
+  } else if (ch !== ch) { // EOF
+    stream.error('End of file in comment');
+    tokens.push(stream.emit(token.comment));
+    return state.dataState;
+  } else {
+    stream.char();
+    if (ch === 0) {
+      stream.error('Null character in comment');
+      stream.currentToken.data += '\ufffd';
+    } else {
+      stream.currentToken.data += String.fromCharCode(ch);
+    }
+    return state.commentState;
+  }
+}
+
+// 12.2.4.49
+function commentEndDashState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x2d) {      // HYPHEN-MINUS -
+    stream.char();
+    return state.commentEndState;
+  } else if (ch !== ch) { // EOF
+    stream.error('End of file in comment after a dash');
+    tokens.push(stream.emit(token.comment));
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.resumePreviousToken(tokens);
+    if (ch === 0) {  // NULL
+      stream.error('Null character in comment after a dash');
+      stream.currentToken.data += '-\ufffd';
+    } else {
+      stream.currentToken.data += '-' + String.fromCharCode(ch);
+    }
+    return state.commentState;
+  }
 }
 
 // 12.2.4.50
@@ -761,26 +811,28 @@ function commentEndState(stream, tokens) {
     stream.char();
     tokens.push(stream.emit(token.commentClose));
     return state.dataState;
-  } else if (ch === 0) {    // NULL
-    stream.char();
-    stream.error('Null character after two dashes in a comment');
-    stream.currentToken.data += '--\ufffd';
-    return state.commentState;
   } else if (ch === 0x21) { // !
     stream.char();
     stream.error('Incorrect --! end of a comment');
     return state.commentEndBangState;
-  } else if (ch === 0x2d) { // HYPEN-MINUS -
+  } else if (ch === 0x2d) { // HYPHEN-MINUS -
     stream.char();
     stream.error('Incorrect --- in a comment');
-    stream.currentToken.data += '-';
+    tokens[tokens.length - 1].data += '-';
     return state.commentEndState;
   } else if (ch !== ch) {   // EOF
     stream.error("End of file at the very end of comment");
     tokens.push(stream.emit(token.commentClose));
     return state.dataState;
   } else {
-    stream.currentToken.data += '-' + String.fromCharCode(ch);
+    stream.char();
+    stream.resumePreviousToken(tokens);
+    if (ch === 0) {  // NULL
+      stream.error('Null character after two dashes in a comment');
+      stream.currentToken.data += '--\ufffd';
+    } else {
+      stream.currentToken.data += '--' + String.fromCharCode(ch);
+    }
     return state.commentState;
   }
 }

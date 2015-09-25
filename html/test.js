@@ -204,7 +204,12 @@ t.eq(tokens[1].type, htmlToken.commentClose, "Empty comment close");
 t.eq(tokens[1].start.column, 4, "Empty comment close start");
 t.eq(tokens[1].end.column, 7, "Empty comment close end");
 
+source = '<!-- hi - -- --- there -->';
+console.log('---');
+tokens = htmlTokenize(source);
+tlog(tokens);
 //source = '<!-- --!>';
+//source = '<!-- --->';
 //source = '<!--->';
 
 //source = '<!-- comment --> <foo/>';
