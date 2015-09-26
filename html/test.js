@@ -204,11 +204,25 @@ t.eq(tokens[1].type, htmlToken.commentClose, "Empty comment close");
 t.eq(tokens[1].start.column, 4, "Empty comment close start");
 t.eq(tokens[1].end.column, 7, "Empty comment close end");
 
-source = '<!-- hi - -- --- there -->';
-console.log('---');
+source = 'before <!-- hi - -- --- there --> after';
 tokens = htmlTokenize(source);
-tlog(tokens);
+t.eq(tokens[1].type, htmlToken.commentOpen, "Comment open");
+t.eq(tokens[1].start.column, 7, "Comment open start");
+t.eq(tokens[1].end.column, 11, "Comment open end");
+t.eq(tokens[2].type, htmlToken.comment, "Comment");
+t.eq(tokens[2].start.column, 11, "Comment start");
+t.eq(tokens[2].end.column, 30, "Comment end");
+t.eq(tokens[2].data, ' hi - -- --- there ', "Comment data");
+t.eq(tokens[3].type, htmlToken.commentClose, "Comment close");
+t.eq(tokens[3].start.column, 30, "Comment close start");
+t.eq(tokens[3].end.column, 33, "Comment close end");
+t.eq(tokens[4].type, htmlToken.char, "Text after comment");
+
 //source = '<!-- --!>';
+//console.log('---');
+//tokens = htmlTokenize(source);
+//tlog(tokens);
+
 //source = '<!-- --->';
 //source = '<!--->';
 
