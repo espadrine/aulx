@@ -819,6 +819,9 @@ function commentEndState(stream, tokens) {
     stream.char();
     stream.error('Incorrect --- in a comment');
     tokens[tokens.length - 1].data += '-';
+    tokens[tokens.length - 1].end.column++;
+    stream.currentToken.start.column++;
+    stream.currentTokenStart++;
     return state.commentEndState;
   } else if (ch !== ch) {   // EOF
     stream.error("End of file at the very end of comment");

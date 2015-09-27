@@ -218,12 +218,26 @@ t.eq(tokens[3].start.column, 30, "Comment close start");
 t.eq(tokens[3].end.column, 33, "Comment close end");
 t.eq(tokens[4].type, htmlToken.char, "Text after comment");
 
-//source = '<!-- --!>';
-//console.log('---');
-//tokens = htmlTokenize(source);
-//tlog(tokens);
+source = '<!-- --->';
+tokens = htmlTokenize(source);
+t.eq(tokens[1].type, htmlToken.comment,
+    "Comment with extra - when closing");
+t.eq(tokens[1].data, " -",
+    "Comment data includes the extra - when closing");
+t.eq(tokens[1].start.column, 4,
+    "Comment start with extra - when closing");
+t.eq(tokens[1].end.column, 6,
+    "Comment end with extra - when closing");
+t.eq(tokens[2].type, htmlToken.commentClose,
+    "Comment close with extra - when closing");
+t.eq(tokens[2].value, "-->",
+    "Comment close with extra - when closing does not include it");
+t.eq(tokens[2].start.column, 6,
+    "Comment close start with extra - when closing");
+t.eq(tokens[2].end.column, 9,
+    "Comment close end with extra - when closing");
 
-//source = '<!-- --->';
+//source = '<!-- --!>';
 //source = '<!--->';
 
 //source = '<!-- comment --> <foo/>';
