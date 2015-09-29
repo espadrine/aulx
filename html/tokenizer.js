@@ -842,7 +842,25 @@ function commentEndState(stream, tokens) {
 
 // 12.2.4.51
 function commentEndBangState(stream, tokens) {
-  // TODO
+  var ch = stream.peek();
+  if (ch === 0x2d) {        // HYPHEN-MINUS -
+    stream.char();
+    stream.currentToken.data += '--!';
+    // TODO: treat it as part of the comment
+    return state.commentEndDashState;
+  } else if (ch === 0x3e) { // >
+    stream.char();
+    tokens.push(stream.emit(token.commentClose));
+    return state.dataState;
+  } else if (ch !== ch) {   // EOF
+    if (ch === 0) {  // NULL
+      stream.error('Null character after --! in a comment');
+      stream.currentToken.data += '--!\ufffd';
+    } else {
+      stream.currentToken.data += '--!' + String.fromCharCode(ch);
+    }
+    return state.commentState;
+  }
 }
 
 // 12.2.4.52
