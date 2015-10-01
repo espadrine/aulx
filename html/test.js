@@ -237,7 +237,26 @@ t.eq(tokens[2].start.column, 6,
 t.eq(tokens[2].end.column, 9,
     "Comment close end with extra - when closing");
 
-//source = '<!-- --!>';
+source = '<!-- --!>';
+tokens = htmlTokenize(source);
+t.eq(tokens[1].type, htmlToken.comment, "Comment with --!>");
+t.eq(tokens[1].data, " ", "Comment data with --!>");
+t.eq(tokens[2].type, htmlToken.commentClose, "Comment close with --!>");
+t.eq(tokens[2].value, "--!>", "Comment close with --!>");
+t.eq(tokens[2].start.column, 5, "Comment close start with --!>");
+t.eq(tokens[2].end.column, 9, "Comment close end with --!>");
+
+source = '<!-- --!-->';
+tokens = htmlTokenize(source);
+t.eq(tokens[1].type, htmlToken.comment, "Comment with --!-->");
+t.eq(tokens[1].data, " --!", "Comment data with --!-->");
+t.eq(tokens[1].start.column, 4, "Comment start with --!-->");
+t.eq(tokens[1].end.column, 8, "Comment end with --!-->");
+t.eq(tokens[2].type, htmlToken.commentClose, "Comment close with --!-->");
+t.eq(tokens[2].value, "-->", "Comment close with --!-->");
+t.eq(tokens[2].start.column, 8, "Comment close start with --!-->");
+t.eq(tokens[2].end.column, 11, "Comment close end with --!-->");
+
 //source = '<!--->';
 
 //source = '<!-- comment --> <foo/>';

@@ -845,8 +845,10 @@ function commentEndBangState(stream, tokens) {
   var ch = stream.peek();
   if (ch === 0x2d) {        // HYPHEN-MINUS -
     stream.char();
-    stream.currentToken.data += '--!';
-    // TODO: treat it as part of the comment
+    tokens[tokens.length - 1].data += '--!';
+    tokens[tokens.length - 1].end.column += 3;
+    stream.currentToken.start.column += 3;
+    stream.currentTokenStart += 3;
     return state.commentEndDashState;
   } else if (ch === 0x3e) { // >
     stream.char();
