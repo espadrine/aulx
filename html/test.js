@@ -257,7 +257,17 @@ t.eq(tokens[2].value, "-->", "Comment close with --!-->");
 t.eq(tokens[2].start.column, 8, "Comment close start with --!-->");
 t.eq(tokens[2].end.column, 11, "Comment close end with --!-->");
 
-//source = '<!--->';
+source = '<!--->';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.commentOpen, "Comment <!--->");
+t.eq(tokens[0].value, "<!--", "Comment open value <!--->");
+t.eq(tokens[0].start.column, 0, "Comment open start <!--->");
+t.eq(tokens[0].end.column, 4, "Comment open end <!--->");
+t.eq(tokens[1].type, htmlToken.commentClose, "Comment close <!--->");
+t.eq(tokens[1].value, "->", "Comment close value <!--->");
+t.eq(tokens[1].start.column, 4, "Comment close start <!--->");
+t.eq(tokens[1].end.column, 6, "Comment close end <!--->");
+
 
 //source = '<!-- comment --> <foo/>';
 //console.log('---');
