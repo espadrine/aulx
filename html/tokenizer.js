@@ -147,9 +147,12 @@ var token = {
   attrDoubleQuotOpen:  incr++, // Attribute double quote <a=">.
   attrDoubleQuotClose: incr++, // Attribute double quote <a="">.
   attrValue:     incr++, // Attribute value.
-  commentOpen:   incr++, // Start of comment <!--
-  comment:       incr++, // Comment <!--…-->
-  commentClose:  incr++, // End of comment -->
+  commentOpen:   incr++, // Start of comment <!--.
+  comment:       incr++, // Comment <!--…-->.
+  commentClose:  incr++, // End of comment -->.
+  doctypeOpen:   incr++, // Doctype <!doctype.
+  doctype:       incr++, // Doctype <!doctype…>.
+  doctypeClose:  incr++, // Doctype >.
 };
 
 function Token(type, value, data, start, end) {
@@ -192,6 +195,9 @@ var state = {
   commentEndDashState: commentEndDashState,
   commentEndBangState: commentEndBangState,
   doctypeState: doctypeState,
+  beforeDoctypeNameState: beforeDoctypeNameState,
+  doctypeNameState: doctypeNameState,
+  afterDoctypeNameState: afterDoctypeNameState,
   cdataSectionState: cdataSectionState,
   beforeAttributeNameState: beforeAttributeNameState,
   attributeNameState: attributeNameState,
@@ -697,7 +703,13 @@ function markupDeclarationOpenState(stream, tokens) {
     return state.commentStartState;
   } else if (/^[dD][oO][cC][tT][yY][pP][eE]$/.test(stream.slice(6))) {
     // DOCTYPE
-    stream.consume(6);
+    stream.consume(7);
+    // The previous token is declared as commentOpen by default.
+    stream.addToPreviousToken(tokens, token.commentOpen);
+    tokens[tokens.length - 1].type = token.doctypeOpen;
+    tokens[tokens.length - 1].data = {forceQuirksFlag: false};
+    stream.startToken(token.doctype);
+    stream.currentToken.data = '';
     return state.doctypeState;
   } else if (stream.adjustedCurrentNode() !== null
           && stream.slice(7) == "[CDATA[") {
@@ -867,6 +879,97 @@ function commentEndBangState(stream, tokens) {
 
 // 12.2.4.52
 function doctypeState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.beforeDoctypeNameState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file at start of doctype');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else {
+    stream.error('No space between doctype declaration and content');
+    return state.beforeDoctypeNameState;
+  }
+}
+
+// 12.2.4.53
+function beforeDoctypeNameState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.beforeDoctypeNameState;
+  } else if (ch === 0) {  // NULL
+    stream.char();
+    stream.error('Null character inside doctype');
+    stream.currentToken.data += '\ufffd';
+    return state.doctypeNameState;
+  } else if (ch === 0x3e) {  // >
+    stream.char();
+    stream.error('Empty doctype');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file inside doctype');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (isUppercaseAscii(ch)) {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch + 0x20);
+    return state.doctypeNameState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+    return state.doctypeNameState;
+  }
+}
+
+// 12.2.4.54
+function doctypeNameState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.afterDoctypeNameState;
+  } else if (ch === 0x3e) {  // >
+    tokens.push(stream.emit(token.doctype));
+    stream.char();
+    tokens.push(stream.emit(token.doctypeClose));
+    return state.dataState;
+  } else if (ch === 0) {  // NULL
+    stream.char();
+    stream.error('Null character inside doctype name');
+    stream.currentToken.data += '\ufffd';
+    return state.doctypeNameState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file inside doctype name');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (isUppercaseAscii(ch)) {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch + 0x20);
+    return state.doctypeNameState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+    return state.doctypeNameState;
+  }
+}
+
+// 12.2.4.55
+function afterDoctypeNameState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.afterDoctypeNameState;
+  }
   // TODO
 }
 
