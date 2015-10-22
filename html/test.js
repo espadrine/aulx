@@ -269,7 +269,24 @@ t.eq(tokens[1].start.column, 4, "Comment close start <!--->");
 t.eq(tokens[1].end.column, 6, "Comment close end <!--->");
 
 
-//source = '<!-- comment --> <foo/>';
+source = '<!doctype html><hi>';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype open");
+t.eq(tokens[0].value, "<!doctype", "Doctype open value");
+t.eq(tokens[0].start.column, 0, "Doctype open start");
+t.eq(tokens[0].end.column, 9, "Doctype open end");
+t.eq(tokens[0].data.forceQuirksFlag, false, "Doctype forceQuirksFlag");
+t.eq(tokens[1].type, htmlToken.doctype, "Doctype");
+t.eq(tokens[1].value, " html", "Doctype value");
+t.eq(tokens[1].start.column, 9, "Doctype start");
+t.eq(tokens[1].end.column, 14, "Doctype end");
+t.eq(tokens[2].type, htmlToken.doctypeClose, "Doctype close");
+t.eq(tokens[2].value, ">", "Doctype close value");
+t.eq(tokens[2].start.column, 14, "Doctype close start");
+t.eq(tokens[2].end.column, 15, "Doctype close end");
+t.eq(tokens[3].type, htmlToken.startTagOpen, "Tag after doctype");
+
+//source = '<!doctypehtml><hi>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
