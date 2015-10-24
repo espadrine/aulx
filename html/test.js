@@ -286,7 +286,22 @@ t.eq(tokens[2].start.column, 14, "Doctype close start");
 t.eq(tokens[2].end.column, 15, "Doctype close end");
 t.eq(tokens[3].type, htmlToken.startTagOpen, "Tag after doctype");
 
-//source = '<!doctypehtml><hi>';
+source = '<!doctypehtml><hi>';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype no space open");
+t.eq(tokens[0].value, "<!doctype", "Doctype no space open value");
+t.eq(tokens[0].start.column, 0, "Doctype no space open start");
+t.eq(tokens[0].end.column, 9, "Doctype no space open end");
+t.eq(tokens[1].type, htmlToken.doctype, "Doctype no space");
+t.eq(tokens[1].value, "html", "Doctype no space value");
+t.eq(tokens[1].start.column, 9, "Doctype no space start");
+t.eq(tokens[1].end.column, 13, "Doctype no space end");
+t.eq(tokens[2].type, htmlToken.doctypeClose, "Doctype no space close");
+t.eq(tokens[2].value, ">", "Doctype no space close value");
+t.eq(tokens[2].start.column, 13, "Doctype no space close start");
+t.eq(tokens[2].end.column, 14, "Doctype no space close end");
+
+//source = '<!doctype>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
