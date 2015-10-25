@@ -908,10 +908,13 @@ function beforeDoctypeNameState(stream, tokens) {
     stream.currentToken.data += '\ufffd';
     return state.doctypeNameState;
   } else if (ch === 0x3e) {  // >
+    if (stream.hasTokenValue()) {
+      tokens.push(stream.emit(token.doctype));
+    }
     stream.char();
     stream.error('Empty doctype');
     tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file inside doctype');
