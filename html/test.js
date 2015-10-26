@@ -301,7 +301,18 @@ t.eq(tokens[2].value, ">", "Doctype no space close value");
 t.eq(tokens[2].start.column, 13, "Doctype no space close start");
 t.eq(tokens[2].end.column, 14, "Doctype no space close end");
 
-//source = '<!doctype>';
+source = '<!doctype>';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Empty doctype open");
+t.eq(tokens[0].value, "<!doctype", "Empty doctype open value");
+t.eq(tokens[0].start.column, 0, "Empty doctype open start");
+t.eq(tokens[0].end.column, 9, "Empty doctype open end");
+t.eq(tokens[1].type, htmlToken.doctypeClose, "Empty doctype close");
+t.eq(tokens[1].value, ">", "Empty doctype close value");
+t.eq(tokens[1].start.column, 9, "Empty doctype close start");
+t.eq(tokens[1].end.column, 10, "Empty doctype close end");
+
+//source = '<!doctype >';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
