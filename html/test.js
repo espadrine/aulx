@@ -303,16 +303,31 @@ t.eq(tokens[2].end.column, 14, "Doctype no space close end");
 
 source = '<!doctype>';
 tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Void doctype open");
+t.eq(tokens[0].value, "<!doctype", "Void doctype open value");
+t.eq(tokens[0].start.column, 0, "Void doctype open start");
+t.eq(tokens[0].end.column, 9, "Void doctype open end");
+t.eq(tokens[1].type, htmlToken.doctypeClose, "Void doctype close");
+t.eq(tokens[1].value, ">", "Void doctype close value");
+t.eq(tokens[1].start.column, 9, "Void doctype close start");
+t.eq(tokens[1].end.column, 10, "Void doctype close end");
+
+source = '<!doctype >';
+tokens = htmlTokenize(source);
 t.eq(tokens[0].type, htmlToken.doctypeOpen, "Empty doctype open");
 t.eq(tokens[0].value, "<!doctype", "Empty doctype open value");
 t.eq(tokens[0].start.column, 0, "Empty doctype open start");
 t.eq(tokens[0].end.column, 9, "Empty doctype open end");
-t.eq(tokens[1].type, htmlToken.doctypeClose, "Empty doctype close");
-t.eq(tokens[1].value, ">", "Empty doctype close value");
-t.eq(tokens[1].start.column, 9, "Empty doctype close start");
-t.eq(tokens[1].end.column, 10, "Empty doctype close end");
+t.eq(tokens[1].type, htmlToken.doctype, "Empty doctype");
+t.eq(tokens[1].value, " ", "Empty doctype value");
+t.eq(tokens[1].start.column, 9, "Empty doctype start");
+t.eq(tokens[1].end.column, 10, "Empty doctype end");
+t.eq(tokens[2].type, htmlToken.doctypeClose, "Empty doctype close");
+t.eq(tokens[2].value, ">", "Empty doctype close value");
+t.eq(tokens[2].start.column, 10, "Empty doctype close start");
+t.eq(tokens[2].end.column, 11, "Empty doctype close end");
 
-//source = '<!doctype >';
+//source = '<!doctype html >';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
