@@ -21,7 +21,7 @@ Stream.prototype = {
 
   peek: function() { return this.input.charCodeAt(this.index); },
   peekn: function(n) { return this.input.charCodeAt(this.index + n); },
-  slice: function(n) { return this.input.slice(this.index, this.index + n + 1); },
+  slice: function(n) { return this.input.slice(this.index, this.index + n); },
   char: function() {
     var ch = this.input.charCodeAt(this.index);
     if (ch === 13) {
@@ -198,6 +198,9 @@ var state = {
   beforeDoctypeNameState: beforeDoctypeNameState,
   doctypeNameState: doctypeNameState,
   afterDoctypeNameState: afterDoctypeNameState,
+  afterDoctypePublicKeywordState: afterDoctypePublicKeywordState,
+  afterDoctypeSystemKeywordState: afterDoctypeSystemKeywordState,
+  bogusDoctypeState: bogusDoctypeState,
   cdataSectionState: cdataSectionState,
   beforeAttributeNameState: beforeAttributeNameState,
   attributeNameState: attributeNameState,
@@ -701,8 +704,7 @@ function markupDeclarationOpenState(stream, tokens) {
     stream.addToPreviousToken(tokens, token.commentOpen);
     stream.startToken(token.comment);
     return state.commentStartState;
-  } else if (/^[dD][oO][cC][tT][yY][pP][eE]$/.test(stream.slice(6))) {
-    // DOCTYPE
+  } else if (/^doctype$/i.test(stream.slice(7))) {
     stream.consume(7);
     // The previous token is declared as commentOpen by default.
     stream.addToPreviousToken(tokens, token.commentOpen);
@@ -712,7 +714,7 @@ function markupDeclarationOpenState(stream, tokens) {
     stream.currentToken.data = '';
     return state.doctypeState;
   } else if (stream.adjustedCurrentNode() !== null
-          && stream.slice(7) == "[CDATA[") {
+          && stream.slice(7) === "[CDATA[") {
     stream.consume(7);
     return state.cdataSectionState;
   } else {
@@ -972,7 +974,45 @@ function afterDoctypeNameState(stream, tokens) {
     // TAB, LF, FF, SPACE
     stream.char();
     return state.afterDoctypeNameState;
+  } else if (ch === 0x3e) { // >
+    tokens.push(stream.emit(token.doctype));
+    stream.char();
+    tokens.push(stream.emit(token.doctypeClose));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file after doctype name');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (/^public$/i.test(stream.slice(6))) {
+    stream.consume(6);
+    return state.afterDoctypePublicKeywordState;
+  } else if (/^system$/i.test(stream.slice(6))) {
+    stream.consume(6);
+    return state.afterDoctypeSystemKeywordState;
+  } else {
+    stream.error('Invalid "' + String.fromCharCode(ch)
+      + '" after doctype name');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    return state.bogusDoctypeState;
   }
+}
+
+// 12.2.4.56
+function afterDoctypePublicKeywordState(stream, tokens) {
+  var ch = stream.peek();
+  // TODO
+}
+
+// 12.2.4.62
+function afterDoctypeSystemKeywordState(stream, tokens) {
+  var ch = stream.peek();
+  // TODO
+}
+
+// 12.2.4.67
+function bogusDoctypeState(stream, tokens) {
+  var ch = stream.peek();
   // TODO
 }
 
