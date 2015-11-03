@@ -269,10 +269,10 @@ t.eq(tokens[1].start.column, 4, "Comment close start <!--->");
 t.eq(tokens[1].end.column, 6, "Comment close end <!--->");
 
 
-source = '<!doctype html><hi>';
+source = '<!DoctypE html><hi>';
 tokens = htmlTokenize(source);
 t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype open");
-t.eq(tokens[0].value, "<!doctype", "Doctype open value");
+t.eq(tokens[0].value, "<!DoctypE", "Doctype open value");
 t.eq(tokens[0].start.column, 0, "Doctype open start");
 t.eq(tokens[0].end.column, 9, "Doctype open end");
 t.eq(tokens[0].data.forceQuirksFlag, false, "Doctype forceQuirksFlag");
@@ -327,10 +327,27 @@ t.eq(tokens[2].value, ">", "Empty doctype close value");
 t.eq(tokens[2].start.column, 10, "Empty doctype close start");
 t.eq(tokens[2].end.column, 11, "Empty doctype close end");
 
-//source = '<!doctype html >';
+source = '<!doctype html >';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype html space open");
+t.eq(tokens[0].value, "<!doctype", "Doctype html space open value");
+t.eq(tokens[0].start.column, 0, "Doctype html space open start");
+t.eq(tokens[0].end.column, 9, "Doctype html space open end");
+t.eq(tokens[1].type, htmlToken.doctype, "Doctype html space");
+t.eq(tokens[1].value, " html ", "Doctype html space value");
+t.eq(tokens[1].start.column, 9, "Doctype html space start");
+t.eq(tokens[1].end.column, 15, "Doctype html space end");
+t.eq(tokens[2].type, htmlToken.doctypeClose, "Doctype html space close");
+t.eq(tokens[2].value, ">", "Doctype html space close value");
+t.eq(tokens[2].start.column, 15, "Doctype html space close start");
+t.eq(tokens[2].end.column, 16, "Doctype html space close end");
+
+//source = '<!doctype html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
+
+//source = '<!doctype html SYSTEM "URI">';
 
 
 // Testing the autocompletion.
