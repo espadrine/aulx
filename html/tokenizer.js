@@ -1013,14 +1013,17 @@ function afterDoctypePublicKeywordState(stream, tokens) {
     return state.beforeDoctypePublicIdentifierState;
   } else if (ch === 0x22) {  // "
     stream.error('Quotation mark after doctype PUBLIC');
+    stream.char();
     tokens[tokens.length - 1].data.publicIdentifier = '';
     return state.doctypePublicIdentifierDoubleQuotedState;
   } else if (ch === 0x27) {  // '
     stream.error('Apostrophe after doctype PUBLIC');
+    stream.char();
     tokens[tokens.length - 1].data.publicIdentifier = '';
     return state.doctypePublicIdentifierSingleQuotedState;
   } else if (ch === 0x3e) {  // >
     stream.error('Closing bracket > after doctype PUBLIC');
+    stream.char();
     tokens[tokens.length - 1].data.forceQuirksFlag = true;
     tokens.push(stream.emit(token.doctype));
     return state.dataState;
@@ -1040,7 +1043,35 @@ function afterDoctypePublicKeywordState(stream, tokens) {
 // 12.2.4.57
 function beforeDoctypePublicIdentifierState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.beforeDoctypePublicIdentifierState;
+  } else if (ch === 0x22) {  // "
+    stream.char();
+    tokens[tokens.length - 1].data.publicIdentifier = '';
+    return state.doctypePublicIdentifierDoubleQuotedState;
+  } else if (ch === 0x27) {  // '
+    stream.char();
+    tokens[tokens.length - 1].data.publicIdentifier = '';
+    return state.doctypePublicIdentifierSingleQuotedState;
+  } else if (ch === 0x3e) {  // >
+    stream.error('Closing bracket > after doctype PUBLIC and spaces');
+    stream.char();
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file after doctype PUBLIC and spaces');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else {
+    stream.error('Invalid "' + String.fromCharCode(ch)
+      + '" after doctype PUBLIC and spaces');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    return state.bogusDoctypeState;
+  }
 }
 
 // 12.2.4.58
