@@ -204,6 +204,7 @@ var state = {
   beforeDoctypePublicIdentifierState: beforeDoctypePublicIdentifierState,
   doctypePublicIdentifierDoubleQuotedState: doctypePublicIdentifierDoubleQuotedState,
   doctypePublicIdentifierSingleQuotedState: doctypePublicIdentifierSingleQuotedState,
+  afterDoctypePublicIdentifierState: afterDoctypePublicIdentifierState,
   afterDoctypeSystemKeywordState: afterDoctypeSystemKeywordState,
   bogusDoctypeState: bogusDoctypeState,
   cdataSectionState: cdataSectionState,
@@ -1077,11 +1078,35 @@ function beforeDoctypePublicIdentifierState(stream, tokens) {
 // 12.2.4.58
 function doctypePublicIdentifierDoubleQuotedState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x22) {  // "
+    stream.char();
+    return state.afterDoctypePublicIdentifierState;
+  } else if (ch === 0) {  // NULL
+    stream.error('Invalid NULL in double-quoted PUBLIC doctype');
+    stream.currentToken.data += '\ufffd';
+    stream.char();
+    return state.doctypePublicIdentifierDoubleQuotedState;
+  } else if (ch === 0x3e) {  // >
+    stream.error('Closing bracket > in double-quoted PUBLIC doctype');
+    stream.char();
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else {
+    stream.char();
+    tokens[tokens.length - 1].data.publicIdentifier += String.fromCharCode(ch);
+    return state.doctypePublicIdentifierDoubleQuotedState;
+  }
 }
 
 // 12.2.4.59
 function doctypePublicIdentifierSingleQuotedState(stream, tokens) {
+  var ch = stream.peek();
+  // TODO
+}
+
+// 12.2.4.60
+function afterDoctypePublicIdentifierState(stream, tokens) {
   var ch = stream.peek();
   // TODO
 }
