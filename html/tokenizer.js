@@ -205,6 +205,9 @@ var state = {
   doctypePublicIdentifierDoubleQuotedState: doctypePublicIdentifierDoubleQuotedState,
   doctypePublicIdentifierSingleQuotedState: doctypePublicIdentifierSingleQuotedState,
   afterDoctypePublicIdentifierState: afterDoctypePublicIdentifierState,
+  doctypeSystemIdentifierDoubleQuotedState: doctypeSystemIdentifierDoubleQuotedState,
+  doctypeSystemIdentifierSingleQuotedState: doctypeSystemIdentifierSingleQuotedState,
+  betweenDoctypePublicAndSystemIdentifiersState: betweenDoctypePublicAndSystemIdentifiersState,
   afterDoctypeSystemKeywordState: afterDoctypeSystemKeywordState,
   bogusDoctypeState: bogusDoctypeState,
   cdataSectionState: cdataSectionState,
@@ -1108,11 +1111,57 @@ function doctypePublicIdentifierSingleQuotedState(stream, tokens) {
 // 12.2.4.60
 function afterDoctypePublicIdentifierState(stream, tokens) {
   var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.betweenDoctypePublicAndSystemIdentifiersState;
+  } else if (ch === 0x22) {  // "
+    stream.char();
+    stream.error('Double quotation after doctype PUBLIC identifier');
+    tokens[tokens.length - 1].data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierDoubleQuotedState;
+  } else if (ch === 0x27) {  // '
+    stream.char();
+    stream.error('Single quotation after doctype PUBLIC identifier');
+    tokens[tokens.length - 1].data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierSingleQuotedState;
+  } else if (ch === 0x3e) {  // >
+    stream.char();
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file after doctype PUBLIC identifier');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else {
+    stream.error('Invalid "' + String.fromCharCode(ch)
+      + '" after doctype PUBLIC identifier');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    return state.bogusDoctypeState;
+  }
+}
+
+// 12.2.4.61
+function betweenDoctypePublicAndSystemIdentifiersState(stream, tokens) {
+  var ch = stream.peek();
   // TODO
 }
 
 // 12.2.4.62
 function afterDoctypeSystemKeywordState(stream, tokens) {
+  var ch = stream.peek();
+  // TODO
+}
+
+// 12.2.4.64
+function doctypeSystemIdentifierDoubleQuotedState(stream, tokens) {
+  var ch = stream.peek();
+  // TODO
+}
+
+// 12.2.4.65
+function doctypeSystemIdentifierSingleQuotedState(stream, tokens) {
   var ch = stream.peek();
   // TODO
 }
