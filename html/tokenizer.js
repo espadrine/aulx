@@ -1145,7 +1145,33 @@ function afterDoctypePublicIdentifierState(stream, tokens) {
 // 12.2.4.61
 function betweenDoctypePublicAndSystemIdentifiersState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.betweenDoctypePublicAndSystemIdentifiersState;
+  } else if (ch === 0x22) {  // "
+    stream.char();
+    tokens[tokens.length - 1].data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierDoubleQuotedState;
+  } else if (ch === 0x27) {  // '
+    stream.char();
+    tokens[tokens.length - 1].data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierSingleQuotedState;
+  } else if (ch === 0x3e) {  // >
+    stream.char();
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file between doctype PUBLIC and SYSTEM identifiers');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else {
+    stream.error('Invalid "' + String.fromCharCode(ch)
+      + '" between doctype PUBLIC and SYSTEM identifiers');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    return state.bogusDoctypeState;
+  }
 }
 
 // 12.2.4.62
