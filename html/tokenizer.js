@@ -205,9 +205,10 @@ var state = {
   doctypePublicIdentifierDoubleQuotedState: doctypePublicIdentifierDoubleQuotedState,
   doctypePublicIdentifierSingleQuotedState: doctypePublicIdentifierSingleQuotedState,
   afterDoctypePublicIdentifierState: afterDoctypePublicIdentifierState,
+  betweenDoctypePublicAndSystemIdentifiersState: betweenDoctypePublicAndSystemIdentifiersState,
   doctypeSystemIdentifierDoubleQuotedState: doctypeSystemIdentifierDoubleQuotedState,
   doctypeSystemIdentifierSingleQuotedState: doctypeSystemIdentifierSingleQuotedState,
-  betweenDoctypePublicAndSystemIdentifiersState: betweenDoctypePublicAndSystemIdentifiersState,
+  afterDoctypeSystemIdentifierState: afterDoctypeSystemIdentifierState,
   afterDoctypeSystemKeywordState: afterDoctypeSystemKeywordState,
   bogusDoctypeState: bogusDoctypeState,
   cdataSectionState: cdataSectionState,
@@ -1183,11 +1184,42 @@ function afterDoctypeSystemKeywordState(stream, tokens) {
 // 12.2.4.64
 function doctypeSystemIdentifierDoubleQuotedState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x22) {  // "
+    stream.char();
+    tokens[tokens.length - 1].data.systemIdentifier = '';
+    return state.afterDoctypeSystemIdentifierState;
+  } else if (ch === 0x3e) {  // >
+    stream.char();
+    stream.error('> in SYSTEM identifier');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (ch === 0) {  // NULL
+    stream.char();
+    stream.currentToken.data += '\ufffd';
+    stream.error('NULL character in SYSTEM identifier');
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file in SYSTEM identifier');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+    return state.doctypeSystemIdentifierDoubleQuotedState;
+  }
 }
 
 // 12.2.4.65
 function doctypeSystemIdentifierSingleQuotedState(stream, tokens) {
+  var ch = stream.peek();
+  // TODO
+}
+
+// 12.2.4.66
+function afterDoctypeSystemIdentifierState(stream, tokens) {
   var ch = stream.peek();
   // TODO
 }
