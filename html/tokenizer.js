@@ -1221,7 +1221,24 @@ function doctypeSystemIdentifierSingleQuotedState(stream, tokens) {
 // 12.2.4.66
 function afterDoctypeSystemIdentifierState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.afterDoctypeSystemIdentifierState;
+  } else if (ch === 0x3e) {  // >
+    stream.char();
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file after doctype SYSTEM identifier');
+    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctype));
+    return state.dataState;
+  } else {
+    stream.error('Invalid "' + String.fromCharCode(ch)
+      + '" after doctype SYSTEM identifier');
+    return state.bogusDoctypeState;
+  }
 }
 
 // 12.2.4.67
