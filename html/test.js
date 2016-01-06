@@ -277,8 +277,8 @@ t.eq(tokens[0].start.column, 0, "Doctype open start");
 t.eq(tokens[0].end.column, 9, "Doctype open end");
 t.eq(tokens[0].data.forceQuirksFlag, false, "Doctype forceQuirksFlag");
 t.eq(tokens[1].type, htmlToken.doctype, "Doctype");
-t.eq(tokens[1].value, " html", "Doctype value");
-t.eq(tokens[1].start.column, 9, "Doctype start");
+t.eq(tokens[1].value, "html", "Doctype value");
+t.eq(tokens[1].start.column, 10, "Doctype start");
 t.eq(tokens[1].end.column, 14, "Doctype end");
 t.eq(tokens[2].type, htmlToken.doctypeClose, "Doctype close");
 t.eq(tokens[2].value, ">", "Doctype close value");
@@ -334,20 +334,50 @@ t.eq(tokens[0].value, "<!doctype", "Doctype html space open value");
 t.eq(tokens[0].start.column, 0, "Doctype html space open start");
 t.eq(tokens[0].end.column, 9, "Doctype html space open end");
 t.eq(tokens[1].type, htmlToken.doctype, "Doctype html space");
-t.eq(tokens[1].value, " html ", "Doctype html space value");
-t.eq(tokens[1].start.column, 9, "Doctype html space start");
-t.eq(tokens[1].end.column, 15, "Doctype html space end");
+t.eq(tokens[1].value, "html", "Doctype html space value");
+t.eq(tokens[1].start.column, 10, "Doctype html space start");
+t.eq(tokens[1].end.column, 14, "Doctype html space end");
 t.eq(tokens[2].type, htmlToken.doctypeClose, "Doctype html space close");
 t.eq(tokens[2].value, ">", "Doctype html space close value");
 t.eq(tokens[2].start.column, 15, "Doctype html space close start");
 t.eq(tokens[2].end.column, 16, "Doctype html space close end");
 
-//source = '<!doctype html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
+source = '<!doctype html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN\x00" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\x00" >';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype public+system open");
+t.eq(tokens[0].data.forceQuirksFlag, false, "Doctype public+system open quirks flag");
+t.eq(tokens[0].data.publicIdentifier, "-//W3C//DTD XHTML 1.0 Transitional//EN\ufffd", "Doctype public+system open public identifier");
+t.eq(tokens[0].data.systemIdentifier, "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\ufffd", "Doctype public+system open system identifier");
+t.eq(tokens[1].type, htmlToken.doctype, "Doctype public+system name");
+t.eq(tokens[2].type, htmlToken.doctypePublic, "Doctype public+system public");
+t.eq(tokens[2].value, "PUBLIC", "Doctype public+system public value");
+t.eq(tokens[2].start.column, 15, "Doctype public+system public start");
+t.eq(tokens[2].end.column, 21, "Doctype public+system public end");
+t.eq(tokens[3].type, htmlToken.doctypePublicIdentifier, "Doctype public+system public identifier");
+t.eq(tokens[3].value, "\"-//W3C//DTD XHTML 1.0 Transitional//EN\x00\"", "Doctype public+system public identifier value");
+t.eq(tokens[3].data, "-//W3C//DTD XHTML 1.0 Transitional//EN\ufffd", "Doctype public+system public identifier data");
+t.eq(tokens[3].start.column, 22, "Doctype public+system public identifier start");
+t.eq(tokens[3].end.column, 63, "Doctype public+system public identifier end");
+t.eq(tokens[4].type, htmlToken.doctypeSystemIdentifier, "Doctype public+system system identifier");
+t.eq(tokens[4].value, "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\x00\"", "Doctype public+system system identifier value");
+t.eq(tokens[4].data, "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\ufffd", "Doctype public+system system identifier data");
+t.eq(tokens[4].start.column, 64, "Doctype public+system system identifier start");
+t.eq(tokens[4].end.column, 122, "Doctype public+system system identifier end");
+t.eq(tokens[5].type, htmlToken.doctypeClose, "Doctype public+system close");
+t.eq(tokens[5].value, ">", "Doctype public+system close value");
+t.eq(tokens[5].start.column, 123, "Doctype public+system close start");
+t.eq(tokens[5].end.column, 124, "Doctype public+system close end");
+
+//source = '<!doctype html PUBLIC 'URI'>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
 
+//source = '<!doctype html PUBLIC"URI">';
+//source = '<!doctype html PUBLIC'URI'>';
 //source = '<!doctype html SYSTEM "URI">';
+//source = '<!doctype html PUBLIC "URI""System">';
+//source = '<!doctype html PUBLIC "URI"'System'>';
 
 
 // Testing the autocompletion.

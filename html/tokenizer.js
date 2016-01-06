@@ -93,6 +93,11 @@ Stream.prototype = {
         {line: this.line, column: this.col});
     return this.currentToken;
   },
+  startTokenStringData: function(tokType) {
+    this.startToken(tokType);
+    this.currentToken.data = '';
+    return this.currentToken;
+  },
   emit: function(tokType, data) {
     this.previousTokenStart = this.currentTokenStart;
     var token = this.currentToken;
@@ -106,6 +111,7 @@ Stream.prototype = {
   },
 
   // HTML-specific state & functions.
+  doctypeToken: null,
   openElements: [],
   htmlFragmentParsingAlgorithm: false,
   additionalAllowedCharacter: 0,
@@ -152,6 +158,10 @@ var token = {
   commentClose:  incr++, // End of comment -->.
   doctypeOpen:   incr++, // Doctype <!doctype.
   doctype:       incr++, // Doctype <!doctype…>.
+  doctypePublic: incr++, // Doctype <!doctype… PUBLIC>.
+  doctypePublicIdentifier: incr++, // Doctype <!doctype… PUBLIC …>.
+  doctypeSystem: incr++, // Doctype <!doctype… SYSTEM>.
+  doctypeSystemIdentifier: incr++, // Doctype <!doctype… SYSTEM …>.
   doctypeClose:  incr++, // Doctype >.
 };
 
@@ -509,19 +519,16 @@ function beforeAttributeValueState(stream, tokens) {
     stream.startToken(token.attrDoubleQuotOpen);
     stream.char();
     tokens.push(stream.emit());
-    stream.startToken(token.attrValue);
-    stream.currentToken.data = '';
+    stream.startTokenStringData(token.attrValue);
     return state.attributeValueDoubleQuotedState;
   } else if (ch === 0x26) {  // &
-    stream.startToken(token.attrValue);
-    stream.currentToken.data = '';
+    stream.startTokenStringData(token.attrValue);
     return state.attributeValueUnquotedState;
   } else if (ch === 0x27) {  // '
     stream.startToken(token.attrSingleQuotOpen);
     stream.char();
     tokens.push(stream.emit());
-    stream.startToken(token.attrValue);
-    stream.currentToken.data = '';
+    stream.startTokenStringData(token.attrValue);
     return state.attributeValueSingleQuotedState;
   } else if (ch === 0) {
     stream.error("Null character in attribute value after attribute name '" +
@@ -720,9 +727,9 @@ function markupDeclarationOpenState(stream, tokens) {
     // The previous token is declared as commentOpen by default.
     stream.addToPreviousToken(tokens, token.commentOpen);
     tokens[tokens.length - 1].type = token.doctypeOpen;
-    tokens[tokens.length - 1].data = {forceQuirksFlag: false};
-    stream.startToken(token.doctype);
-    stream.currentToken.data = '';
+    stream.doctypeToken = tokens[tokens.length - 1];
+    stream.doctypeToken.data = {forceQuirksFlag: false};
+    stream.startTokenStringData(token.doctype);
     return state.doctypeState;
   } else if (stream.adjustedCurrentNode() !== null
           && stream.slice(7) === "[CDATA[") {
@@ -899,7 +906,7 @@ function doctypeState(stream, tokens) {
     return state.beforeDoctypeNameState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file at start of doctype');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     tokens.push(stream.emit(token.doctype));
     return state.dataState;
   } else {
@@ -916,6 +923,7 @@ function beforeDoctypeNameState(stream, tokens) {
     stream.char();
     return state.beforeDoctypeNameState;
   } else if (ch === 0) {  // NULL
+    stream.startTokenStringData(token.doctype);
     stream.char();
     stream.error('Null character inside doctype');
     stream.currentToken.data += '\ufffd';
@@ -926,19 +934,21 @@ function beforeDoctypeNameState(stream, tokens) {
     }
     stream.char();
     stream.error('Empty doctype');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file inside doctype');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     tokens.push(stream.emit(token.doctype));
     return state.dataState;
   } else if (isUppercaseAscii(ch)) {
+    stream.startTokenStringData(token.doctype);
     stream.char();
     stream.currentToken.data += String.fromCharCode(ch + 0x20);
     return state.doctypeNameState;
   } else {
+    stream.startTokenStringData(token.doctype);
     stream.char();
     stream.currentToken.data += String.fromCharCode(ch);
     return state.doctypeNameState;
@@ -950,6 +960,7 @@ function doctypeNameState(stream, tokens) {
   var ch = stream.peek();
   if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
     // TAB, LF, FF, SPACE
+    tokens.push(stream.emit(token.doctype));
     stream.char();
     return state.afterDoctypeNameState;
   } else if (ch === 0x3e) {  // >
@@ -964,7 +975,7 @@ function doctypeNameState(stream, tokens) {
     return state.doctypeNameState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file inside doctype name');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     tokens.push(stream.emit(token.doctype));
     return state.dataState;
   } else if (isUppercaseAscii(ch)) {
@@ -986,25 +997,28 @@ function afterDoctypeNameState(stream, tokens) {
     stream.char();
     return state.afterDoctypeNameState;
   } else if (ch === 0x3e) { // >
-    tokens.push(stream.emit(token.doctype));
+    stream.startToken();
     stream.char();
     tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file after doctype name');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.dataState;
   } else if (/^public$/i.test(stream.slice(6))) {
+    stream.startToken(token.doctypePublic);
     stream.consume(6);
+    tokens.push(stream.emit(token.doctypePublic));
     return state.afterDoctypePublicKeywordState;
   } else if (/^system$/i.test(stream.slice(6))) {
+    stream.startToken(token.doctypeSystem);
     stream.consume(6);
+    tokens.push(stream.emit(token.doctypeSystem));
     return state.afterDoctypeSystemKeywordState;
   } else {
     stream.error('Invalid "' + String.fromCharCode(ch)
       + '" after doctype name');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.bogusDoctypeState;
   }
 }
@@ -1019,28 +1033,28 @@ function afterDoctypePublicKeywordState(stream, tokens) {
   } else if (ch === 0x22) {  // "
     stream.error('Quotation mark after doctype PUBLIC');
     stream.char();
-    tokens[tokens.length - 1].data.publicIdentifier = '';
+    stream.doctypeToken.data.publicIdentifier = '';
     return state.doctypePublicIdentifierDoubleQuotedState;
   } else if (ch === 0x27) {  // '
     stream.error('Apostrophe after doctype PUBLIC');
     stream.char();
-    tokens[tokens.length - 1].data.publicIdentifier = '';
+    stream.doctypeToken.data.publicIdentifier = '';
     return state.doctypePublicIdentifierSingleQuotedState;
   } else if (ch === 0x3e) {  // >
     stream.error('Closing bracket > after doctype PUBLIC');
+    stream.startToken();
     stream.char();
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file after doctype PUBLIC');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.dataState;
   } else {
     stream.error('Invalid "' + String.fromCharCode(ch)
       + '" after doctype PUBLIC');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.bogusDoctypeState;
   }
 }
@@ -1053,28 +1067,30 @@ function beforeDoctypePublicIdentifierState(stream, tokens) {
     stream.char();
     return state.beforeDoctypePublicIdentifierState;
   } else if (ch === 0x22) {  // "
+    stream.startTokenStringData(token.doctypePublicIdentifier);
     stream.char();
-    tokens[tokens.length - 1].data.publicIdentifier = '';
+    stream.doctypeToken.data.publicIdentifier = '';
     return state.doctypePublicIdentifierDoubleQuotedState;
   } else if (ch === 0x27) {  // '
+    stream.startTokenStringData(token.doctypePublicIdentifier);
     stream.char();
-    tokens[tokens.length - 1].data.publicIdentifier = '';
+    stream.doctypeToken.data.publicIdentifier = '';
     return state.doctypePublicIdentifierSingleQuotedState;
   } else if (ch === 0x3e) {  // >
     stream.error('Closing bracket > after doctype PUBLIC and spaces');
+    stream.startToken();
     stream.char();
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file after doctype PUBLIC and spaces');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.dataState;
   } else {
     stream.error('Invalid "' + String.fromCharCode(ch)
       + '" after doctype PUBLIC and spaces');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.bogusDoctypeState;
   }
 }
@@ -1084,21 +1100,25 @@ function doctypePublicIdentifierDoubleQuotedState(stream, tokens) {
   var ch = stream.peek();
   if (ch === 0x22) {  // "
     stream.char();
+    tokens.push(stream.emit(token.doctypePublicIdentifier));
     return state.afterDoctypePublicIdentifierState;
   } else if (ch === 0) {  // NULL
     stream.error('Invalid NULL in double-quoted PUBLIC doctype');
     stream.currentToken.data += '\ufffd';
+    stream.doctypeToken.data.publicIdentifier += '\ufffd';
     stream.char();
     return state.doctypePublicIdentifierDoubleQuotedState;
   } else if (ch === 0x3e) {  // >
     stream.error('Closing bracket > in double-quoted PUBLIC doctype');
+    stream.startToken();
     stream.char();
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else {
     stream.char();
-    tokens[tokens.length - 1].data.publicIdentifier += String.fromCharCode(ch);
+    stream.currentToken.data += String.fromCharCode(ch);
+    stream.doctypeToken.data.publicIdentifier += String.fromCharCode(ch);
     return state.doctypePublicIdentifierDoubleQuotedState;
   }
 }
@@ -1119,26 +1139,26 @@ function afterDoctypePublicIdentifierState(stream, tokens) {
   } else if (ch === 0x22) {  // "
     stream.char();
     stream.error('Double quotation after doctype PUBLIC identifier');
-    tokens[tokens.length - 1].data.systemIdentifier = '';
+    stream.doctypeToken.data.systemIdentifier = '';
     return state.doctypeSystemIdentifierDoubleQuotedState;
   } else if (ch === 0x27) {  // '
     stream.char();
     stream.error('Single quotation after doctype PUBLIC identifier');
-    tokens[tokens.length - 1].data.systemIdentifier = '';
+    stream.doctypeToken.data.systemIdentifier = '';
     return state.doctypeSystemIdentifierSingleQuotedState;
   } else if (ch === 0x3e) {  // >
+    stream.startToken();
     stream.char();
-    tokens.push(stream.emit(token.doctype));
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file after doctype PUBLIC identifier');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.dataState;
   } else {
     stream.error('Invalid "' + String.fromCharCode(ch)
       + '" after doctype PUBLIC identifier');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.bogusDoctypeState;
   }
 }
@@ -1151,26 +1171,28 @@ function betweenDoctypePublicAndSystemIdentifiersState(stream, tokens) {
     stream.char();
     return state.betweenDoctypePublicAndSystemIdentifiersState;
   } else if (ch === 0x22) {  // "
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
     stream.char();
-    tokens[tokens.length - 1].data.systemIdentifier = '';
+    stream.doctypeToken.data.systemIdentifier = '';
     return state.doctypeSystemIdentifierDoubleQuotedState;
   } else if (ch === 0x27) {  // '
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
     stream.char();
-    tokens[tokens.length - 1].data.systemIdentifier = '';
+    stream.doctypeToken.data.systemIdentifier = '';
     return state.doctypeSystemIdentifierSingleQuotedState;
   } else if (ch === 0x3e) {  // >
+    stream.startToken();
     stream.char();
-    tokens.push(stream.emit(token.doctype));
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file between doctype PUBLIC and SYSTEM identifiers');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.dataState;
   } else {
     stream.error('Invalid "' + String.fromCharCode(ch)
       + '" between doctype PUBLIC and SYSTEM identifiers');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.bogusDoctypeState;
   }
 }
@@ -1186,28 +1208,31 @@ function doctypeSystemIdentifierDoubleQuotedState(stream, tokens) {
   var ch = stream.peek();
   if (ch === 0x22) {  // "
     stream.char();
-    tokens[tokens.length - 1].data.systemIdentifier = '';
+    tokens.push(stream.emit(token.doctypeSystemIdentifier));
     return state.afterDoctypeSystemIdentifierState;
   } else if (ch === 0x3e) {  // >
+    tokens.push(stream.emit(token.doctypeSystemIdentifier));
+    stream.startToken();
     stream.char();
     stream.error('> in SYSTEM identifier');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch === 0) {  // NULL
     stream.char();
     stream.currentToken.data += '\ufffd';
+    stream.doctypeToken.data.systemIdentifier += '\ufffd';
     stream.error('NULL character in SYSTEM identifier');
-    tokens.push(stream.emit(token.doctype));
-    return state.dataState;
+    return state.doctypeSystemIdentifierDoubleQuotedState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file in SYSTEM identifier');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeSystemIdentifier));
     return state.dataState;
   } else {
     stream.char();
     stream.currentToken.data += String.fromCharCode(ch);
+    stream.doctypeToken.data.systemIdentifier += String.fromCharCode(ch);
     return state.doctypeSystemIdentifierDoubleQuotedState;
   }
 }
@@ -1226,13 +1251,13 @@ function afterDoctypeSystemIdentifierState(stream, tokens) {
     stream.char();
     return state.afterDoctypeSystemIdentifierState;
   } else if (ch === 0x3e) {  // >
+    stream.startToken();
     stream.char();
-    tokens.push(stream.emit(token.doctype));
+    tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
   } else if (ch !== ch) {  // EOF
     stream.error('End of file after doctype SYSTEM identifier');
-    tokens[tokens.length - 1].data.forceQuirksFlag = true;
-    tokens.push(stream.emit(token.doctype));
+    stream.doctypeToken.data.forceQuirksFlag = true;
     return state.dataState;
   } else {
     stream.error('Invalid "' + String.fromCharCode(ch)
