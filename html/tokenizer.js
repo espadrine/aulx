@@ -1126,7 +1126,29 @@ function doctypePublicIdentifierDoubleQuotedState(stream, tokens) {
 // 12.2.4.59
 function doctypePublicIdentifierSingleQuotedState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x27) {  // '
+    stream.char();
+    tokens.push(stream.emit(token.doctypePublicIdentifier));
+    return state.afterDoctypePublicIdentifierState;
+  } else if (ch === 0) {  // NULL
+    stream.error('Invalid NULL in single-quoted PUBLIC doctype');
+    stream.currentToken.data += '\ufffd';
+    stream.doctypeToken.data.publicIdentifier += '\ufffd';
+    stream.char();
+    return state.doctypePublicIdentifierSingleQuotedState;
+  } else if (ch === 0x3e) {  // >
+    stream.error('Closing bracket > in single-quoted PUBLIC doctype');
+    stream.startToken();
+    stream.char();
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+    stream.doctypeToken.data.publicIdentifier += String.fromCharCode(ch);
+    return state.doctypePublicIdentifierSingleQuotedState;
+  }
 }
 
 // 12.2.4.60

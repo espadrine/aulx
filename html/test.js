@@ -368,12 +368,23 @@ t.eq(tokens[5].value, ">", "Doctype public+system close value");
 t.eq(tokens[5].start.column, 123, "Doctype public+system close start");
 t.eq(tokens[5].end.column, 124, "Doctype public+system close end");
 
-//source = '<!doctype html PUBLIC 'URI'>';
+source = '<!doctype html PUBLIC \'URI\'>';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype public '' open");
+t.eq(tokens[1].type, htmlToken.doctype, "Doctype public '' name");
+t.eq(tokens[2].type, htmlToken.doctypePublic, "Doctype public '' public");
+t.eq(tokens[3].type, htmlToken.doctypePublicIdentifier, "Doctype public '' public identifier");
+t.eq(tokens[3].value, "'URI'", "Doctype public '' public identifier value");
+t.eq(tokens[3].data, "URI", "Doctype public '' public identifier data");
+t.eq(tokens[3].start.column, 22, "Doctype public '' public identifier start");
+t.eq(tokens[3].end.column, 27, "Doctype public '' public identifier end");
+t.eq(tokens[4].type, htmlToken.doctypeClose, "Doctype public '' close");
+
+//source = '<!doctype html PUBLIC"URI">';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
 
-//source = '<!doctype html PUBLIC"URI">';
 //source = '<!doctype html PUBLIC'URI'>';
 //source = '<!doctype html SYSTEM "URI">';
 //source = '<!doctype html PUBLIC "URI""System">';
