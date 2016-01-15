@@ -1031,19 +1031,21 @@ function afterDoctypePublicKeywordState(stream, tokens) {
     stream.char();
     return state.beforeDoctypePublicIdentifierState;
   } else if (ch === 0x22) {  // "
-    stream.error('Quotation mark after doctype PUBLIC');
+    stream.startTokenStringData(token.doctypePublicIdentifier);
     stream.char();
+    stream.error('Quotation mark after doctype PUBLIC');
     stream.doctypeToken.data.publicIdentifier = '';
     return state.doctypePublicIdentifierDoubleQuotedState;
   } else if (ch === 0x27) {  // '
-    stream.error('Apostrophe after doctype PUBLIC');
+    stream.startTokenStringData(token.doctypePublicIdentifier);
     stream.char();
+    stream.error('Apostrophe after doctype PUBLIC');
     stream.doctypeToken.data.publicIdentifier = '';
     return state.doctypePublicIdentifierSingleQuotedState;
   } else if (ch === 0x3e) {  // >
-    stream.error('Closing bracket > after doctype PUBLIC');
     stream.startToken();
     stream.char();
+    stream.error('Closing bracket > after doctype PUBLIC');
     stream.doctypeToken.data.forceQuirksFlag = true;
     tokens.push(stream.emit(token.doctypeClose));
     return state.dataState;
