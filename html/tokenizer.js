@@ -220,6 +220,7 @@ var state = {
   doctypeSystemIdentifierSingleQuotedState: doctypeSystemIdentifierSingleQuotedState,
   afterDoctypeSystemIdentifierState: afterDoctypeSystemIdentifierState,
   afterDoctypeSystemKeywordState: afterDoctypeSystemKeywordState,
+  beforeDoctypeSystemIdentifierState: beforeDoctypeSystemIdentifierState,
   bogusDoctypeState: bogusDoctypeState,
   cdataSectionState: cdataSectionState,
   // Attribute
@@ -1054,6 +1055,7 @@ function afterDoctypePublicKeywordState(stream, tokens) {
     stream.doctypeToken.data.forceQuirksFlag = true;
     return state.dataState;
   } else {
+    stream.char();
     stream.error('Invalid "' + String.fromCharCode(ch)
       + '" after doctype PUBLIC');
     stream.doctypeToken.data.forceQuirksFlag = true;
@@ -1224,7 +1226,75 @@ function betweenDoctypePublicAndSystemIdentifiersState(stream, tokens) {
 // 12.2.4.62
 function afterDoctypeSystemKeywordState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.beforeDoctypeSystemIdentifierState;
+  } else if (ch === 0x22) {  // "
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
+    stream.char();
+    stream.doctypeToken.data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierDoubleQuotedState;
+  } else if (ch === 0x27) {  // '
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
+    stream.char();
+    stream.doctypeToken.data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierSingleQuotedState;
+  } else if (ch === 0x3e) {  // >
+    stream.startToken();
+    stream.char();
+    stream.error('Closing bracket > after doctype SYSTEM');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file after doctype SYSTEM');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.error('Invalid "' + String.fromCharCode(ch)
+      + '" after doctype SYSTEM');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    return state.bogusDoctypeState;
+  }
+}
+
+// 12.2.4.63
+function beforeDoctypeSystemIdentifierState(stream, tokens) {
+  var ch = stream.peek();
+  if (ch === 0x9 || ch === 0xa || ch === 0xc || ch === 0x20) {
+    // TAB, LF, FF, SPACE
+    stream.char();
+    return state.beforeDoctypeSystemIdentifierState;
+  } else if (ch === 0x22) {  // "
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
+    stream.char();
+    stream.doctypeToken.data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierDoubleQuotedState;
+  } else if (ch === 0x27) {  // '
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
+    stream.char();
+    stream.doctypeToken.data.systemIdentifier = '';
+    return state.doctypeSystemIdentifierSingleQuotedState;
+  } else if (ch === 0x3e) {  // >
+    stream.startToken();
+    stream.char();
+    stream.error('Closing bracket > before doctype SYSTEM identifier');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
+    return state.dataState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file before doctype SYSTEM identifier');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.error('Invalid "' + String.fromCharCode(ch)
+      + '" before doctype SYSTEM identifier');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    return state.bogusDoctypeState;
+  }
 }
 
 // 12.2.4.64
