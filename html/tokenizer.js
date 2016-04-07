@@ -1334,7 +1334,35 @@ function doctypeSystemIdentifierDoubleQuotedState(stream, tokens) {
 // 12.2.4.65
 function doctypeSystemIdentifierSingleQuotedState(stream, tokens) {
   var ch = stream.peek();
-  // TODO
+  if (ch === 0x27) {  // '
+    stream.char();
+    tokens.push(stream.emit(token.doctypeSystemIdentifier));
+    return state.afterDoctypeSystemIdentifierState;
+  } else if (ch === 0x3e) {  // >
+    tokens.push(stream.emit(token.doctypeSystemIdentifier));
+    stream.startToken();
+    stream.char();
+    stream.error('> in SYSTEM identifier');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeClose));
+    return state.dataState;
+  } else if (ch === 0) {  // NULL
+    stream.char();
+    stream.currentToken.data += '\ufffd';
+    stream.doctypeToken.data.systemIdentifier += '\ufffd';
+    stream.error('NULL character in SYSTEM identifier');
+    return state.doctypeSystemIdentifierSingleQuotedState;
+  } else if (ch !== ch) {  // EOF
+    stream.error('End of file in SYSTEM identifier');
+    stream.doctypeToken.data.forceQuirksFlag = true;
+    tokens.push(stream.emit(token.doctypeSystemIdentifier));
+    return state.dataState;
+  } else {
+    stream.char();
+    stream.currentToken.data += String.fromCharCode(ch);
+    stream.doctypeToken.data.systemIdentifier += String.fromCharCode(ch);
+    return state.doctypeSystemIdentifierSingleQuotedState;
+  }
 }
 
 // 12.2.4.66

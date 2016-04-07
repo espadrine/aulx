@@ -419,12 +419,27 @@ t.eq(tokens[3].start.column, 22, "Doctype system identifier start");
 t.eq(tokens[3].end.column, 27, "Doctype system identifier end");
 t.eq(tokens[4].type, htmlToken.doctypeClose, "Doctype system close");
 
-//source = '<!doctype html SYSTEM 'URI'>';
+source = '<!doctype html SYSTEM \'URI\'>';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype system '' open");
+t.eq(tokens[0].data.forceQuirksFlag, false, "Doctype system open '' quirks flag");
+t.eq(tokens[0].data.publicIdentifier, undefined, "Doctype system open '' public identifier");
+t.eq(tokens[0].data.systemIdentifier, "URI", "Doctype system open '' system identifier");
+t.eq(tokens[1].type, htmlToken.doctype, "Doctype system '' name");
+t.eq(tokens[2].type, htmlToken.doctypeSystem, "Doctype system ''");
+t.eq(tokens[3].type, htmlToken.doctypeSystemIdentifier,
+    "Doctype system '' identifier");
+t.eq(tokens[3].value, "'URI'", "Doctype system '' identifier value");
+t.eq(tokens[3].data, "URI", "Doctype system '' identifier data");
+t.eq(tokens[3].start.column, 22, "Doctype system '' identifier start");
+t.eq(tokens[3].end.column, 27, "Doctype system '' identifier end");
+t.eq(tokens[4].type, htmlToken.doctypeClose, "Doctype system '' close");
+
+//source = '<!doctype html SYSTEM"URI">';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
 
-//source = '<!doctype html SYSTEM"URI">';
 //source = '<!doctype html SYSTEM'URI'>';
 //source = '<!doctype html PUBLIC "URI""System">';
 //source = '<!doctype html PUBLIC "URI"'System'>';
