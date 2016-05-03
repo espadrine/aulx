@@ -466,12 +466,31 @@ t.eq(tokens[3].start.column, 21, "Doctype system'' identifier start");
 t.eq(tokens[3].end.column, 26, "Doctype system'' identifier end");
 t.eq(tokens[4].type, htmlToken.doctypeClose, "Doctype system'' close");
 
-//source = '<!doctype html PUBLIC "URI""System">';
+source = '<!doctype html PUBLIC "URI""System">';
+tokens = htmlTokenize(source);
+t.eq(tokens[0].type, htmlToken.doctypeOpen, "Doctype publicsystem open");
+t.eq(tokens[0].data.forceQuirksFlag, false, "Doctype publicsystem open quirks flag");
+t.eq(tokens[0].data.publicIdentifier, "URI", "Doctype publicsystem open public identifier");
+t.eq(tokens[0].data.systemIdentifier, "System", "Doctype publicsystem open system identifier");
+t.eq(tokens[1].type, htmlToken.doctype, "Doctype publicsystem name");
+t.eq(tokens[2].type, htmlToken.doctypePublic, "Doctype publicsystem public");
+t.eq(tokens[3].type, htmlToken.doctypePublicIdentifier, "Doctype publicsystem public identifier");
+t.eq(tokens[3].value, "\"URI\"", "Doctype publicsystem public identifier value");
+t.eq(tokens[3].data, "URI", "Doctype publicsystem public identifier data");
+t.eq(tokens[3].start.column, 22, "Doctype publicsystem public identifier start");
+t.eq(tokens[3].end.column, 27, "Doctype publicsystem public identifier end");
+t.eq(tokens[4].type, htmlToken.doctypeSystemIdentifier, "Doctype publicsystem identifier");
+t.eq(tokens[4].value, "\"System\"", "Doctype publicsystem identifier value");
+t.eq(tokens[4].data, "System", "Doctype publicsystem identifier data");
+t.eq(tokens[4].start.column, 27, "Doctype publicsystem identifier start");
+t.eq(tokens[4].end.column, 35, "Doctype publicsystem identifier end");
+t.eq(tokens[5].type, htmlToken.doctypeClose, "Doctype publicsystem close");
+
+
+//source = '<!doctype html PUBLIC "URI"'System'>';
 //console.log('---');
 //tokens = htmlTokenize(source);
 //tlog(tokens);
-
-//source = '<!doctype html PUBLIC "URI"'System'>';
 
 
 // Testing the autocompletion.

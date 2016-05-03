@@ -1163,11 +1163,13 @@ function afterDoctypePublicIdentifierState(stream, tokens) {
     stream.char();
     return state.betweenDoctypePublicAndSystemIdentifiersState;
   } else if (ch === 0x22) {  // "
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
     stream.char();
     stream.error('Double quotation after doctype PUBLIC identifier');
     stream.doctypeToken.data.systemIdentifier = '';
     return state.doctypeSystemIdentifierDoubleQuotedState;
   } else if (ch === 0x27) {  // '
+    stream.startTokenStringData(token.doctypeSystemIdentifier);
     stream.char();
     stream.error('Single quotation after doctype PUBLIC identifier');
     stream.doctypeToken.data.systemIdentifier = '';
